@@ -1,13 +1,24 @@
 # powerPianoRoll
 
-An attempt to create a scriptable, extenable web-tech based piano roll interface.  
+An attempt to create a scriptable, extendable web based piano roll interface.
 
-Existing projects to look at
-https://github.com/hoch/WAAX/blob/master/src/mui/mui-pianoroll/mui-pianoroll.html 
-https://jackschaedler.github.io/jazzari/
-https://vega.github.io/vega-lite/
-https://nexus-js.github.io/ui/
+### Goals
+- Minimal dependencies
+- Easily embeddable
+- Declarative, component-based structure
+- Simple methods for data input/manipulation/output
 
-examples w/o source
-http://web.mit.edu/larryw/www/pianoroll/
-https://onlinesequencer.net/
+### References
+- https://github.com/nexus-js/ui/
+- https://github.com/charlieroberts/interface.js
+- https://github.com/jackschaedler/jazzari
+- https://github.com/node-red/node-red
+- https://github.com/hoch/WAAX/blob/master/examples/mui/ex-mui-pianoroll.html
+
+### Visualisation
+- https://github.com/d3/d3
+- https://github.com/vega/vega
+
+### Examples w/o source
+- http://web.mit.edu/larryw/www/pianoroll/
+- https://onlinesequencer.net/
