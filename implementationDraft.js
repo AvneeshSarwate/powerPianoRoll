@@ -46,9 +46,9 @@ how annoying it might be to program selecting/dragging/highlighting/resizing wit
 In general, aiming for Ableton piano-roll feature parity wrt mouse interaction (assuming keyboard shortcut
 is trivial to implement if you can get the mouse stuff right)
 
-order of things to test (for each, make sure they're sensible under viewbox zoom too):
-- dragging behavior (simple behavior seems to be working fine under zoom)
-- dragging and snap to grid
+order of library features to test (for each, make sure they're sensible under viewbox zoom too):
+- X - dragging behavior 
+- X - dragging and snap to grid
 - multiselection + dragging via mouse
     - see what visualization of selections looks like and tweak it
 - multiselection + dragging + snap to grid
@@ -57,13 +57,20 @@ order of things to test (for each, make sure they're sensible under viewbox zoom
 - figure out good UI for viewbox resizing/position control (panzoom plugin if necessary?)
     - figure out how to map mouse coordinates to SVG coordinates
 
-
+Except for zoom events, which will likely be attatched to the root SVG element, events/plugins will
+only be added to the "note" svg elements
 
 */
 
 //testing SVG library api
 var draw;
-var line;
+var l1, l2;
+
+function snapToNearest(elem, xSize, ySize){
+    elem.x(Math.round(elem.x()/xSize) * xSize);
+    elem.y(Math.round(elem.y()/ySize) * ySize);
+}
+
 SVG.on(document, 'DOMContentLoaded', function() {
     var boxSize = 200;
     draw = SVG('drawing').size(300, 300);
@@ -71,11 +78,13 @@ SVG.on(document, 'DOMContentLoaded', function() {
     var rect2 = draw.rect(boxSize, boxSize).attr({ fill: '#0f6' }).move(boxSize, 0);
     var rect3 = draw.rect(boxSize, boxSize).attr({ fill: '#60f' }).move(0, boxSize);
     var rect4 = draw.rect(boxSize, boxSize).attr({ fill: '#f60' }).move(boxSize, boxSize);
-    draw.viewbox(175, 175, 30, 30);
+    l1 = draw.line(300,0,300,200).stroke({width: 10});
+    l2 = draw.line(100,0,100,200).stroke({width: 10});
+    draw.viewbox(0, 0, 400, 400);
 })
 
-/*
-line = draw.line("50%","0%","50%","100%").stroke({width: 10})
-line.draggable();
+
+/* scratch code for live-coding development/testing
+l1.draggable().on('dragend', function(event){snapToNearest(this, 50, 200)})
 
 */
