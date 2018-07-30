@@ -43,6 +43,22 @@ In SVG you can draw on an arbitrarily large plane and have a "viewbox" that show
 Because of this, for a piano roll, you can "draw" a piano-roll at an arbitrary size and move around
 the viewbox rather than "redrawing" the piano roll when you want to zoom/move. What's TBD is to see
 how annoying it might be to program selecting/dragging/highlighting/resizing with this approach. 
+In general, aiming for Ableton piano-roll feature parity wrt mouse interaction (assuming keyboard shortcut
+is trivial to implement if you can get the mouse stuff right)
+
+order of things to test (for each, make sure they're sensible under viewbox zoom too):
+- dragging behavior (simple behavior seems to be working fine under zoom)
+- dragging and snap to grid
+- multiselection + dragging via mouse
+    - see what visualization of selections looks like and tweak it
+- multiselection + dragging + snap to grid
+- multiselection and ableton style resizing
+- multiselected resizing + snap to grid
+- figure out good UI for viewbox resizing/position control (panzoom plugin if necessary?)
+    - figure out how to map mouse coordinates to SVG coordinates
+
+
+
 */
 
 //testing SVG library api
@@ -57,3 +73,9 @@ SVG.on(document, 'DOMContentLoaded', function() {
     var rect4 = draw.rect(boxSize, boxSize).attr({ fill: '#f60' }).move(boxSize, boxSize);
     draw.viewbox(175, 175, 30, 30);
 })
+
+/*
+line = draw.line("50%","0%","50%","100%").stroke({width: 10})
+line.draggable();
+
+*/
