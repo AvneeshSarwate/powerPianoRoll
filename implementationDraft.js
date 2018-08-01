@@ -49,6 +49,7 @@ is trivial to implement if you can get the mouse stuff right)
 order of library features to test (for each, make sure they're sensible under viewbox zoom too):
 - X - dragging behavior 
 - X - dragging and snap to grid
+    - NOTE - clicking on a note is interpeted as a "drag" and will automatically quantize it
 - multiselection + dragging via mouse
     - see what visualization of selections looks like and tweak it
     - TODO - figure out a visual higlight/selection mechanism - 
@@ -67,43 +68,90 @@ only be added to the "note" svg elements
 //testing SVG library api
 var draw;
 var l1, l2;
-var dragStartReference;
+/* a dictionary that, upon the start of a group drag/resize event, stores the 
+ * initial positions and lengths of all notes so that the mouse modifications to
+ * one note can be bounced to the rest of the selected notes*/
+var noteModStartReference;
 var notes = {};
-function snapToNearest(elem, xSize, ySize){
+
+var xSnap = 200;
+var ySnap = 50;
+function snapPositionToGrid(elem, xSize, ySize){
     elem.x(Math.round(elem.x()/xSize) * xSize);
     elem.y(Math.round(elem.y()/ySize) * ySize);
 }
 var selectedElements;
 
-function setHandlersForNote(noteElement){
+
+function refreshNoteModStartReference(noteIds){
+    noteModStartReference = {};
+    noteIds.forEach(function(id){ 
+        noteModStartReference[id] = {
+            x:  notes[id].x(), 
+            y:  notes[id].y(), 
+            //x1 is the same as x() when using a line, but keeps 
+            //properties for drag/resize separate and more readable for now
+            x1: notes[id].attr('x1'), 
+            x2: notes[id].attr('x2')
+        };
+    });
+}
+
+function setMultiSelectHandlers(noteElement){
     var noteIds = selectedElements.map(elem => elem.noteId);
 
-    noteElement.draggable().on('beforedrag', function(event){
-        // console.log('beforeDragStart', this.noteId);
-        dragStartReference = {};
-        noteIds.forEach(function(id){ 
-            dragStartReference[id] = {x: notes[id].x(), y: notes[id].y()};
-        });
-        // console.log('beforeDrag', dragStartReference);
-    });
+    /* sets the initial position of all the selected elements so you can
+     * calculate the movement of the "other" selected elements when you are
+     * dragging a particular element with your mouse 
+     */ 
+     refreshNoteModStartReference(noteIds);
+
+    /* Performs the same drag deviation done on the clicked element to 
+     * the other selected elements
+     */
     noteElement.draggable().on('dragmove', function(event){
-        var xMove = this.x() - dragStartReference[this.noteId].x;
-        var yMove = this.y() - dragStartReference[this.noteId].y;
+        console.log("dragmove")
+        var xMove = this.x() - noteModStartReference[this.noteId].x;
+        var yMove = this.y() - noteModStartReference[this.noteId].y;
         var thisId = this.noteId;
         noteIds.forEach(function(id){
-            if(id === thisId) return;
-            else {
-                notes[id].x(dragStartReference[id].x + xMove);
-                notes[id].y(dragStartReference[id].y + yMove);
+            if(id != thisId) {
+                notes[id].x(noteModStartReference[id].x + xMove);
+                notes[id].y(noteModStartReference[id].y + yMove);
             }
         });
     });
-    noteElement.off('dragend'); //remove the original dragend function;
+
+    /* remove the original dragend function which only snaps the target
+     * element to the grid
+     */
+    noteElement.off('dragend'); 
+
+    /* have a dragend function that snaps ALL selected elements to the grid
+     */
     noteElement.draggable().on('dragend', function(event){
         selectedElements.forEach(function(elem){
-            snapToNearest(elem, 50, 200);
-        })
+            snapPositionToGrid(elem, xSnap, ySnap); //TODO - x-variable will change depending on user quantization choice
+            refreshNoteModStartReference(noteIds);
+        });
     });
+
+    noteElement.on('resizing', function(event){
+        var oldX1 = noteModStartReference[this.noteId].x1;
+        var isEndChange = this.attr('x1') === oldX1;
+        var thisId = this.noteId;
+        noteIds.forEach(function(id){
+            if(id != thisId){
+                var oldNoteVals = noteModStartReference[id];
+                if(isEndChange) notes[id].attr('x2', oldNoteVals.x2 + event.detail.dx);
+                else notes[id].attr('x1', oldNoteVals.x1 + event.detail.dx);
+            }
+        });
+    });
+
+    noteElement.on('resizedone', function(event){
+        refreshNoteModStartReference(noteIds);
+    })
 }
 
 SVG.on(document, 'DOMContentLoaded', function() {
@@ -118,8 +166,8 @@ SVG.on(document, 'DOMContentLoaded', function() {
     var rect4 = draw.rect(boxSize, boxSize).attr({ fill: '#f60' }).move(boxSize, boxSize);
 
     //set up the manipulatable elements (which will later be the notes)
-    l1 = draw.line(300,0,300,200).stroke({width: 10});
-    l2 = draw.line(100,0,100,200).stroke({width: 10});
+    l1 = draw.line(0, 300, 200, 300).stroke({width: 10});
+    l2 = draw.line(0, 100, 200, 100).stroke({width: 10});
 
     //every new note created will have a newly generated noteId. this
     //is a quick setup to show what the note management will look like
@@ -127,32 +175,61 @@ SVG.on(document, 'DOMContentLoaded', function() {
     l1.noteId = 0;
     l2.noteId = 1;
     Object.keys(notes).forEach(function(key){ //adding snap-to-grid
-        notes[key].draggable().on('dragend', function(event){ snapToNearest(this, 50, 200)});
+        note = notes[key];
+        note.draggable().on('dragend', function(event){ snapPositionToGrid(this, xSnap, ySnap)});
+        note.selectize().resize().on('resizing', function(event){console.log(event)});
     });
 
 
 
     
-    //this will be the end-state of a select mouse gesture that ranges
-    //over some set of note elements. Again, just a quick hack setup to
-    //test the interaction
+    /* this will be the end-state of a select mouse gesture that ranges
+     * over some set of note elements. Again, just a quick hack setup to
+     * test the interaction 
+     */
     selectedElements = [l1, l2];
-    selectedElements.forEach(setHandlersForNote);
+    initMultiNoteMod(selectedElements, setMultiSelectHandlers);
 
-    //after you click to the background to "unselect" the selected notes,
-    //release all the drag event handlers
+    /* after you click to the background to "unselect" the selected notes,
+     * release all the drag event handlers
+     */
     // selectedElements.forEach(function(elem){
     //     elem.off('beforedrag');
     //     elem.off('dragmove');
     //     elem.off('dragend');
-    //     elem.on('dragend', function(event){snapToNearest(this, 50, 200)})
+    //     elem.on('dragend', function(event){snapPositionToGrid(this, 50, 200)})
     // });
+    // selectedElements = []
         
     draw.viewbox(0, 0, 400, 400);
 });
 
+function initMultiNoteMod(selectedElements_, modHandlers){
+    selectedElements_.forEach(modHandlers);   
+}
+
+function removeMultiSelectHandlers(selectedElements_){
+    selectedElements.forEach(function(elem){
+        elem.off('beforedrag');
+        elem.off('dragmove');
+        elem.off('dragend');
+        elem.on('dragend', function(event){snapPositionToGrid(this, xSnap, ySnap)})
+    });
+}
+
+/*
+WORKING BUG LOG
+- Clicking on notes snaps them all to grid - not necessarily technically a had fix but need to 
+  decide how auto-snapping will work, and need to make it work with resizing (snap start position
+  on resize, but using a new function that doesn't "move" the whole note, just the start position?)
+
+
+*/
+
+
+
 
 /* scratch code for live-coding development/testing
-l1.draggable().on('dragend', function(event){snapToNearest(this, 50, 200)})
+l1.draggable().on('dragend', function(event){snapPositionToGrid(this, 50, 200)})
 
 */
