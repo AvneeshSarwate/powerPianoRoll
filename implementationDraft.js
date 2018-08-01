@@ -1,50 +1,11 @@
-
-
-class PianoRoll {
-    constructor(canvas){
-        this.canvas = canvas;
-        this.canvasHeight = canvas.height;
-        this.canvasWidth = canvas.width;
-        this.numNotesShown = 20; //always an integer
-        this.numMeasuresHown = 4; //always a multiple of 1/16
-
-        /* This means bottom of the 60-block is aligned with the center.
-         * 60.5 would mean the center is aligned with halfway through the 60-block */ 
-        this.centerNote = 60; //notes are 0-indexed
-
-        /* This means left-end of the 2-block is aligned with the center.
-         * 2.5 would mean the center is aligned with halfway through the 2-block */
-        this.centerMeasure = 2; //measures are 0-indexed
-
-        this.notes = [];
-    }
-
-
-
-    drawBackground(){
-        //draw the "white key" color background
-
-
-        //calculate where horizontal block divisions are
-        //draw the "black key" horizontal blocks
-        //draw the horizontal lines
-
-        //calculate where vertical lines are
-    }
-
-    drawNotes(){
-
-    }
-}
-
 /*
 basic strategy for using SVG:
 In SVG you can draw on an arbitrarily large plane and have a "viewbox" that shows a sub-area of that.
 Because of this, for a piano roll, you can "draw" a piano-roll at an arbitrary size and move around
 the viewbox rather than "redrawing" the piano roll when you want to zoom/move. What's TBD is to see
 how annoying it might be to program selecting/dragging/highlighting/resizing with this approach. 
-In general, aiming for Ableton piano-roll feature parity wrt mouse interaction (assuming keyboard shortcut
-is trivial to implement if you can get the mouse stuff right)
+In general, aiming for Ableton piano-roll feature parity wrt mouse interaction (assuming keyboard 
+shortcuts are trivial to implement if you can get the mouse stuff right)
 
 order of library features to test (for each, make sure they're sensible under viewbox zoom too):
 - X - dragging behavior 
@@ -55,10 +16,11 @@ order of library features to test (for each, make sure they're sensible under vi
     - TODO - figure out a visual higlight/selection mechanism - 
       the selection plugin doesn't do that on its own
 - X - multiselection + dragging + snap to grid
-- multiselection and ableton style resizing
+- X - multiselection and ableton style resizing
 - multiselected resizing + snap to grid
 - figure out good UI for viewbox resizing/position control (panzoom plugin if necessary?)
     - figure out how to map mouse coordinates to SVG coordinates
+- figure out cursor animation and viewbox movement for a playing piano roll
 
 Except for zoom events, which will likely be attatched to the root SVG element, events/plugins will
 only be added to the "note" svg elements
@@ -74,7 +36,7 @@ var l1, l2;
 var noteModStartReference;
 var notes = {};
 
-var xSnap = 200;
+var xSnap = 200; //x-variable will change depending on user quantization choice
 var ySnap = 50;
 function snapPositionToGrid(elem, xSize, ySize){
     elem.x(Math.round(elem.x()/xSize) * xSize);
@@ -100,17 +62,12 @@ function refreshNoteModStartReference(noteIds){
 function setMultiSelectHandlers(noteElement){
     var noteIds = selectedElements.map(elem => elem.noteId);
 
-    /* sets the initial position of all the selected elements so you can
-     * calculate the movement of the "other" selected elements when you are
-     * dragging a particular element with your mouse 
-     */ 
      refreshNoteModStartReference(noteIds);
 
     /* Performs the same drag deviation done on the clicked element to 
      * the other selected elements
      */
     noteElement.draggable().on('dragmove', function(event){
-        console.log("dragmove")
         var xMove = this.x() - noteModStartReference[this.noteId].x;
         var yMove = this.y() - noteModStartReference[this.noteId].y;
         var thisId = this.noteId;
@@ -131,11 +88,16 @@ function setMultiSelectHandlers(noteElement){
      */
     noteElement.draggable().on('dragend', function(event){
         selectedElements.forEach(function(elem){
-            snapPositionToGrid(elem, xSnap, ySnap); //TODO - x-variable will change depending on user quantization choice
+            snapPositionToGrid(elem, xSnap, ySnap); 
+
+            //refresh the startReference so the next multi-select-transform works right
             refreshNoteModStartReference(noteIds);
         });
     });
 
+    /* Performs the same resizing done on the clicked element to 
+     * the other selected elements
+     */
     noteElement.on('resizing', function(event){
         var oldX1 = noteModStartReference[this.noteId].x1;
         var isEndChange = this.attr('x1') === oldX1;
@@ -149,6 +111,7 @@ function setMultiSelectHandlers(noteElement){
         });
     });
 
+    //refresh the startReference so the next multi-select-transform works right
     noteElement.on('resizedone', function(event){
         refreshNoteModStartReference(noteIds);
     })
@@ -177,7 +140,6 @@ SVG.on(document, 'DOMContentLoaded', function() {
     Object.keys(notes).forEach(function(key){ //adding snap-to-grid
         note = notes[key];
         note.draggable().on('dragend', function(event){ snapPositionToGrid(this, xSnap, ySnap)});
-        note.selectize().resize().on('resizing', function(event){console.log(event)});
     });
 
 
@@ -188,23 +150,16 @@ SVG.on(document, 'DOMContentLoaded', function() {
      * test the interaction 
      */
     selectedElements = [l1, l2];
-    initMultiNoteMod(selectedElements, setMultiSelectHandlers);
+    attachMultiSelectHandlers(selectedElements, setMultiSelectHandlers);
 
-    /* after you click to the background to "unselect" the selected notes,
-     * release all the drag event handlers
+    /* the onscreen view area (the root SVG element) is only 300x300, but we have drawn shapes 
+     * that are contained in a 400x400 box. the SVG viewbox feature lets you draw arbitraily  
+     * sized images and then view them at whatever scale you want in your view area
      */
-    // selectedElements.forEach(function(elem){
-    //     elem.off('beforedrag');
-    //     elem.off('dragmove');
-    //     elem.off('dragend');
-    //     elem.on('dragend', function(event){snapPositionToGrid(this, 50, 200)})
-    // });
-    // selectedElements = []
-        
     draw.viewbox(0, 0, 400, 400);
 });
 
-function initMultiNoteMod(selectedElements_, modHandlers){
+function attachMultiSelectHandlers(selectedElements_, modHandlers){
     selectedElements_.forEach(modHandlers);   
 }
 
@@ -222,14 +177,6 @@ WORKING BUG LOG
 - Clicking on notes snaps them all to grid - not necessarily technically a had fix but need to 
   decide how auto-snapping will work, and need to make it work with resizing (snap start position
   on resize, but using a new function that doesn't "move" the whole note, just the start position?)
-
-
 */
 
 
-
-
-/* scratch code for live-coding development/testing
-l1.draggable().on('dragend', function(event){snapPositionToGrid(this, 50, 200)})
-
-*/
