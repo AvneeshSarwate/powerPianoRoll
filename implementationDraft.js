@@ -8,46 +8,99 @@ In general, aiming for Ableton piano-roll feature parity wrt mouse interaction (
 shortcuts are trivial to implement if you can get the mouse stuff right)
 
 order of library features to test (for each, make sure they're sensible under viewbox zoom too):
+NOTE - this is only a test of INTERACTIONS - the look is ugly and the code is organized for quick hacking
+
 - X - dragging behavior 
 - X - dragging and snap to grid
-    - NOTE - clicking on a note is interpeted as a "drag" and will automatically quantize it
-- multiselection + dragging via mouse
-    - see what visualization of selections looks like and tweak it
-    - TODO - figure out a visual higlight/selection mechanism - 
-      the selection plugin doesn't do that on its own
+    - NOTE - clicking on a note is interpeted as a "drag" and will automatically quantize it (see bugs below)
+- X - multiselection + dragging via mouse
 - X - multiselection + dragging + snap to grid
-- X - multiselection and ableton style resizing
-- multiselected resizing + snap to grid
-- figure out good UI for viewbox resizing/position control (panzoom plugin if necessary?)
+- X - multiselection and ableton style note length resizing
+- ish - multiselected resizing + snap to grid
+    - doable, but design choices necessary 
+- implement double-click to add note interaction (should be straightforwards, svg-wise)
+- figure out good UI for viewbox resizing/position control and scroll (panzoom plugin if necessary?)
     - figure out how to map mouse coordinates to SVG coordinates
 - figure out cursor animation and viewbox movement for a playing piano roll
-
-Except for zoom events, which will likely be attatched to the root SVG element, events/plugins will
-only be added to the "note" svg elements
+- decide how to do ableton "draw mode" style interaction (shouldn't require any new funky 
+ SVG behavior, but will likely be tricky wrt UI-state management)
 
 */
 
-//testing SVG library api
-var draw;
-var l1, l2;
+//public vars to allow live-codable testing in the console
+
+var svgRoot; //the svg root element
+
+var l1, l2; //manually created "note" elements to test interaction
+
 /* a dictionary that, upon the start of a group drag/resize event, stores the 
  * initial positions and lengths of all notes so that the mouse modifications to
  * one note can be bounced to the rest of the selected notes*/
 var noteModStartReference;
+
+//structure tracking both note info and note svg element state
 var notes = {};
 
+//snap to grid quantization sizes
 var xSnap = 200; //x-variable will change depending on user quantization choice
 var ySnap = 50;
+
 var noteHeight = 40;
+
+//elements selected by a mouse-region highlight
+var selectedElements = new Set();
+var selectRect; //the variable holding the mouse-region highlight svg rectabgle 
+
+//svg elements in the pianoRoll background
+var backgroundElements;
+
+
+SVG.on(document, 'DOMContentLoaded', function() {
+
+    // set up a background against which you can see elements  
+    // (this will later be the piano roll backdrop)
+    var boxSize = 200;
+    svgRoot = SVG('drawing').attr('id', 'pianoRollSVG').size(300, 300);
+    var rect = svgRoot.rect(boxSize, boxSize).attr({ fill: '#f06' });
+    var rect2 = svgRoot.rect(boxSize, boxSize).attr({ fill: '#0f6' }).move(boxSize, 0);
+    var rect3 = svgRoot.rect(boxSize, boxSize).attr({ fill: '#60f' }).move(0, boxSize);
+    var rect4 = svgRoot.rect(boxSize, boxSize).attr({ fill: '#f60' }).move(boxSize, boxSize);
+    backgroundElements = [rect, rect2, rect3, rect4];
+
+    // attach the interaction handlers for various gestures - currently just mouse-multi select
+    // of notes, will later also attach handlers for ableton "draw mode" style interaction
+    attachMouseModifierHandlers(backgroundElements, svgRoot);
+
+    //set up the manipulatable elements (which will later be the notes)
+    l1 = svgRoot.line(0, 300, 200, 300).stroke({width: noteHeight});
+    l2 = svgRoot.line(0, 100, 200, 100).stroke({width: noteHeight});
+
+    // Evvery new note created will have a newly generated noteId. This
+    // is a quick setup to show what the note management will look like.
+    notes = {0: l1, 1: l2};
+    l1.noteId = 0;
+    l2.noteId = 1;
+    Object.keys(notes).forEach(function(key){ //adding snap-to-grid
+        note = notes[key];
+        note.draggable().selectize({rotationPoint: false, points:["r", "l"]}).resize()
+            .on('dragend', function(event){ snapPositionToGrid(this, xSnap, ySnap)});
+    });
+
+
+    /* the onscreen view area (the root SVG element) is only 300x300, but we have drawn shapes 
+     * that are contained in a 400x400 box. the SVG viewbox feature lets you draw arbitraily  
+     * sized images and then view them at whatever scale you want in your view area
+     */
+    svgRoot.viewbox(0, 0, 400, 400);
+});
+
+//function that snapes note svg elements into place
 function snapPositionToGrid(elem, xSize, ySize){
     elem.x(Math.round(elem.x()/xSize) * xSize);
     elem.y(Math.round(elem.y()/ySize) * ySize);
 }
-var selectedElements = new Set();
-var selectRect;
 
-var backgroundElements;
-
+// Resets the "start" positions/sizes of notes for multi-select transformations to current position/sizes
 function refreshNoteModStartReference(noteIds){
     noteModStartReference = {};
     noteIds.forEach(function(id){ 
@@ -62,7 +115,8 @@ function refreshNoteModStartReference(noteIds){
     });
 }
 
-function setMultiSelectListeners(noteElement){
+// sets event handlers on each note element for position/resize multi-select changes
+function setMultiSelectListenersOnElement(noteElement){
     var noteIds = Array.from(selectedElements).map(elem => elem.noteId);
 
      refreshNoteModStartReference(noteIds);
@@ -120,6 +174,18 @@ function setMultiSelectListeners(noteElement){
     })
 }
 
+// stop bouncing position/size changes to other elements
+function removeMultiSelectListeners(selectedElements_){
+    console.log("remove multi", selectedElements_);
+    selectedElements_.forEach(function(elem){
+        elem.off('beforedrag');
+        elem.off('dragmove');
+        elem.off('dragend');
+        elem.off('resizing');
+        elem.on('dragend', function(event){snapPositionToGrid(this, xSnap, ySnap)})
+    });
+}
+
 
 function selectNote(noteElem){
     selectedElements.add(noteElem);
@@ -131,6 +197,7 @@ function deselectNote(noteElem){
     noteElem.stroke("#000");
 }
 
+// calculates if a note intersects with the mouse-multiselect rectangle
 function selectRectIntersection(selectRect_, noteElem){
     //top-left and bottom right of bounding rect. done this way b/c getBBox doesnt account for line thickness
     var noteBox = {
@@ -145,6 +212,7 @@ function selectRectIntersection(selectRect_, noteElem){
     return boxIntersect(noteBox, selectBox);
 }
 
+//the actual rectangle intersection calculation, separated out for debugging ease
 function boxIntersect(noteBox, selectBox){
     var returnVal = true;
     //if noteBox is full to the left or right of select box
@@ -157,16 +225,20 @@ function boxIntersect(noteBox, selectBox){
     return returnVal;
 }
 
+// attaches the appropriate handlers to the mouse event allowing to to 
+// start a multi-select gesture (and later draw mode)
 function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
     var svgElem = svgParentObj.node;
  
+    // need to listen on window so select gesture ends even if released outside the 
+    // bounds of the root svg element or browser
     window.addEventListener('mouseup', function(event){
         // console.log("window up", event);
 
         //end a multi-select drag gesture
         if(selectRect) {
             if(selectedElements.size > 0 ){
-                attachMultiSelectListeners(selectedElements, setMultiSelectListeners);
+                selectedElements.forEach(setMultiSelectListenersOnElement);
             }
             selectRect.draw('stop', event);
             selectRect.remove();
@@ -208,68 +280,18 @@ function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
     });
 }
 
-
-SVG.on(document, 'DOMContentLoaded', function() {
-
-    //set up a background that you can see elements against, which will 
-    //later be the piano roll backdrop
-    var boxSize = 200;
-    draw = SVG('drawing').attr('id', 'pianoRollSVG').size(300, 300);
-    var rect = draw.rect(boxSize, boxSize).attr({ fill: '#f06' });
-    var rect2 = draw.rect(boxSize, boxSize).attr({ fill: '#0f6' }).move(boxSize, 0);
-    var rect3 = draw.rect(boxSize, boxSize).attr({ fill: '#60f' }).move(0, boxSize);
-    var rect4 = draw.rect(boxSize, boxSize).attr({ fill: '#f60' }).move(boxSize, boxSize);
-    backgroundElements = [rect, rect2, rect3, rect4];
-
-    attachMouseModifierHandlers(backgroundElements, draw);
-
-    //set up the manipulatable elements (which will later be the notes)
-    l1 = draw.line(0, 300, 200, 300).stroke({width: noteHeight});
-    l2 = draw.line(0, 100, 200, 100).stroke({width: noteHeight});
-
-    //every new note created will have a newly generated noteId. this
-    //is a quick setup to show what the note management will look like
-    notes = {0: l1, 1: l2};
-    l1.noteId = 0;
-    l2.noteId = 1;
-    Object.keys(notes).forEach(function(key){ //adding snap-to-grid
-        note = notes[key];
-        note.draggable().selectize({rotationPoint: false, points:["r", "l"]}).resize()
-            .on('dragend', function(event){ snapPositionToGrid(this, xSnap, ySnap)});
-    });
-
-
-    /* the onscreen view area (the root SVG element) is only 300x300, but we have drawn shapes 
-     * that are contained in a 400x400 box. the SVG viewbox feature lets you draw arbitraily  
-     * sized images and then view them at whatever scale you want in your view area
-     */
-    draw.viewbox(0, 0, 400, 400);
-});
-
-function attachMultiSelectListeners(selectedElements_, modHandlers){
-    selectedElements_.forEach(modHandlers);   
-}
-
-function removeMultiSelectListeners(selectedElements_){
-    console.log("remove multi", selectedElements_);
-    selectedElements_.forEach(function(elem){
-        elem.off('beforedrag');
-        elem.off('dragmove');
-        elem.off('dragend');
-        elem.off('resizing');
-        elem.on('dragend', function(event){snapPositionToGrid(this, xSnap, ySnap)})
-    });
-}
-
 /*
-WORKING BUG LOG
+WORKING BUG LOG 
+- X prefix means good workaround found, but the "common sense" approach still fails and idk why
+
+
 - Clicking on notes snaps them all to grid - not necessarily technically a hard fix but need to 
   decide how auto-snapping will work, and need to make it work with resizing (snap start position
   on resize, but using a new function that doesn't "move" the whole note, just the start position?)
-- mouseup doesn't properly get registered on background elements, drawing multi-select rect by 
+- X - mouseup doesn't properly get registered on background elements, drawing multi-select rect by 
   listening on the base svg element instead
-    - workaround seems to be working successfully 
-- mousedrag selection doesn't seem to be intersecting correctly with the note-line elements
+- X - mousedrag selection using native-svg checkIntersection doesn't seem to be working correctly 
+  with the note-line elements
 */
 
 
