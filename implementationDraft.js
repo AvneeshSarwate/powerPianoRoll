@@ -43,7 +43,9 @@ function snapPositionToGrid(elem, xSize, ySize){
     elem.y(Math.round(elem.y()/ySize) * ySize);
 }
 var selectedElements;
+var selectRect;
 
+var backgroundElements;
 
 function refreshNoteModStartReference(noteIds){
     noteModStartReference = {};
@@ -59,7 +61,7 @@ function refreshNoteModStartReference(noteIds){
     });
 }
 
-function setMultiSelectHandlers(noteElement){
+function setMultiSelectListeners(noteElement){
     var noteIds = selectedElements.map(elem => elem.noteId);
 
      refreshNoteModStartReference(noteIds);
@@ -117,16 +119,84 @@ function setMultiSelectHandlers(noteElement){
     })
 }
 
+function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
+    var svgElem = document.getElementById('drawing').children[0];
+
+    svgParentObj.on('mousedown', function(event){
+        console.log("down", event);
+        if(selectRect) selectRect.remove();
+        selectRect = svgParentObj.rect();
+        selectRect.draw(event);
+        svgParentObj.on("mousemove", function(event){
+            // console.log('move', event);
+        })
+    });
+    svgParentObj.on('mouseup', function(event){
+        console.log("up", event);
+        selectRect.draw('stop', event);
+        selectRect.remove();
+        svgParentObj.off("mousemove");
+
+    });  
+    window.addEventListener('mouseup', function(event){
+        console.log("window up", event);
+        selectRect.draw('stop', event);
+        selectRect.remove();
+        svgParentObj.off("mousemove");
+    });
+
+
+    // backgroundElements_.forEach(function(elem){
+    //     elem.on('mousedown', function(event){
+    //         selectRect = svgParentObj.rect();
+    //         selectRect.draw(event);
+    //         console.log("down", event);
+    //     });
+    //     elem.on('mouseup', function(event){
+    //         console.log("up", event);
+    //         selectRect.draw('stop', event);
+    //         selectRect.remove();
+    //     });  
+    // });
+
+    // document.addEventListener('keydown', (event) => {
+    //     if(event.key === 's'){
+    //         selectRect = svgParentObj.rect();
+
+    //         svgParentObj.on('mousedown', function(event){
+    //             selectRect.draw(event);
+    //             console.log("down", event);
+    //         }, false);
+    //         svgParentObj.on('mouseup', function(event){
+    //             console.log("up", event);
+    //             selectRect.draw('stop', event);
+    //         }, false)
+    //     }
+    // });
+    // document.addEventListener('keyup', (event) => {
+    //     if(event.key === 's'){
+    //         svgParentObj.off('mousedown');
+    //         svgParentObj.off('mouseup');
+    //         selectRect.remove();
+    //     }
+    // });
+}
+
+// function setUpParentSVG
+
 SVG.on(document, 'DOMContentLoaded', function() {
 
     //set up a background that you can see elements against, which will 
     //later be the piano roll backdrop
     var boxSize = 200;
-    draw = SVG('drawing').size(300, 300);
+    draw = SVG('drawing').attr('id', 'pianoRollSVG').size(300, 300);
     var rect = draw.rect(boxSize, boxSize).attr({ fill: '#f06' });
     var rect2 = draw.rect(boxSize, boxSize).attr({ fill: '#0f6' }).move(boxSize, 0);
     var rect3 = draw.rect(boxSize, boxSize).attr({ fill: '#60f' }).move(0, boxSize);
     var rect4 = draw.rect(boxSize, boxSize).attr({ fill: '#f60' }).move(boxSize, boxSize);
+    backgroundElements = [rect, rect2, rect3, rect4];
+
+    attachMouseModifierHandlers(backgroundElements, draw);
 
     //set up the manipulatable elements (which will later be the notes)
     l1 = draw.line(0, 300, 200, 300).stroke({width: 10});
@@ -139,7 +209,7 @@ SVG.on(document, 'DOMContentLoaded', function() {
     l2.noteId = 1;
     Object.keys(notes).forEach(function(key){ //adding snap-to-grid
         note = notes[key];
-        note.draggable().on('dragend', function(event){ snapPositionToGrid(this, xSnap, ySnap)});
+        note.draggable().selectize().resize().on('dragend', function(event){ snapPositionToGrid(this, xSnap, ySnap)});
     });
 
 
@@ -149,8 +219,8 @@ SVG.on(document, 'DOMContentLoaded', function() {
      * over some set of note elements. Again, just a quick hack setup to
      * test the interaction 
      */
-    selectedElements = [l1, l2];
-    attachMultiSelectHandlers(selectedElements, setMultiSelectHandlers);
+    // selectedElements = [l1, l2];
+    // attachMultiSelectListeners(selectedElements, setMultiSelectListeners);
 
     /* the onscreen view area (the root SVG element) is only 300x300, but we have drawn shapes 
      * that are contained in a 400x400 box. the SVG viewbox feature lets you draw arbitraily  
@@ -159,11 +229,11 @@ SVG.on(document, 'DOMContentLoaded', function() {
     draw.viewbox(0, 0, 400, 400);
 });
 
-function attachMultiSelectHandlers(selectedElements_, modHandlers){
+function attachMultiSelectListeners(selectedElements_, modHandlers){
     selectedElements_.forEach(modHandlers);   
 }
 
-function removeMultiSelectHandlers(selectedElements_){
+function removeMultiSelectListeners(selectedElements_){
     selectedElements.forEach(function(elem){
         elem.off('beforedrag');
         elem.off('dragmove');
