@@ -38,6 +38,7 @@ var notes = {};
 
 var xSnap = 200; //x-variable will change depending on user quantization choice
 var ySnap = 50;
+var noteHeight = 40;
 function snapPositionToGrid(elem, xSize, ySize){
     elem.x(Math.round(elem.x()/xSize) * xSize);
     elem.y(Math.round(elem.y()/ySize) * ySize);
@@ -131,7 +132,29 @@ function deselectNote(noteElem){
 }
 
 function selectRectIntersection(selectRect_, noteElem){
+    //top-left and bottom right of bounding rect. done this way b/c getBBox doesnt account for line thickness
+    var noteBox = {
+        tl: {x: noteElem.x(), y: noteElem.y() - noteHeight/2},  
+        br: {x: noteElem.x() + noteElem.width(), y: noteElem.y() + noteHeight/2},
+    };
+    var selectRectBox = selectRect.node.getBBox();
+    var selectBox = {
+        tl: {x: selectRectBox.x, y: selectRectBox.y},
+        br: {x: selectRectBox.x + selectRectBox.width , y: selectRectBox.y + selectRectBox.height}
+    };
+    return boxIntersect(noteBox, selectBox);
+}
 
+function boxIntersect(noteBox, selectBox){
+    var returnVal = true;
+    //if noteBox is full to the left or right of select box
+    if(noteBox.br.x < selectBox.tl.x || noteBox.tl.x > selectBox.br.x) returnVal = false;
+
+    //if noteBox is fully below or above rect box
+    //comparison operators are wierd because image coordinates used e.g (0,0) at "upper left" of positive quadrant
+    if(noteBox.tl.y > selectBox.br.y || noteBox.br.y < selectBox.tl.y) returnVal = false;
+    // console.log("intersect", noteBox, selectBox, returnVal);
+    return returnVal;
 }
 
 function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
@@ -170,7 +193,8 @@ function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
                 Object.keys(notes).forEach(function(noteId){
                     var noteElem = notes[noteId];
                     
-                    var intersecting = svgParentObj.node.checkIntersection(noteElem.node, selectRect.node.getBBox());
+                    // var intersecting = svgParentObj.node.checkIntersection(noteElem.node, selectRect.node.getBBox());
+                    var intersecting = selectRectIntersection(selectRect, noteElem);
                     if(intersecting) {
                         // console.log([noteElem.y()], selectRect.node.getBBox())
                         selectNote(noteElem);                        
@@ -200,8 +224,8 @@ SVG.on(document, 'DOMContentLoaded', function() {
     attachMouseModifierHandlers(backgroundElements, draw);
 
     //set up the manipulatable elements (which will later be the notes)
-    l1 = draw.line(0, 300, 200, 300).stroke({width: 40});
-    l2 = draw.line(0, 100, 200, 100).stroke({width: 40});
+    l1 = draw.line(0, 300, 200, 300).stroke({width: noteHeight});
+    l2 = draw.line(0, 100, 200, 100).stroke({width: noteHeight});
 
     //every new note created will have a newly generated noteId. this
     //is a quick setup to show what the note management will look like
