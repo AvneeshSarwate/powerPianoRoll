@@ -42,7 +42,7 @@ function snapPositionToGrid(elem, xSize, ySize){
     elem.x(Math.round(elem.x()/xSize) * xSize);
     elem.y(Math.round(elem.y()/ySize) * ySize);
 }
-var selectedElements;
+var selectedElements = new Set();
 var selectRect;
 
 var backgroundElements;
@@ -62,7 +62,7 @@ function refreshNoteModStartReference(noteIds){
 }
 
 function setMultiSelectListeners(noteElement){
-    var noteIds = selectedElements.map(elem => elem.noteId);
+    var noteIds = Array.from(selectedElements).map(elem => elem.noteId);
 
      refreshNoteModStartReference(noteIds);
 
@@ -119,45 +119,78 @@ function setMultiSelectListeners(noteElement){
     })
 }
 
+
 function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
-    var svgElem = document.getElementById('drawing').children[0];
+    var svgElem = svgParentObj.node;
 
-    svgParentObj.on('mousedown', function(event){
-        console.log("down", event);
-        if(selectRect) selectRect.remove();
-        selectRect = svgParentObj.rect();
-        selectRect.draw(event);
-        svgParentObj.on("mousemove", function(event){
-            // console.log('move', event);
-        })
-    });
-    svgParentObj.on('mouseup', function(event){
-        console.log("up", event);
-        selectRect.draw('stop', event);
-        selectRect.remove();
-        svgParentObj.off("mousemove");
+    // svgParentObj.on('mousedown', function(event){
+    //     console.log("down", event);
+    //     if(selectRect) selectRect.remove();
+    //     selectedElements.clear();
+    //     selectRect = svgParentObj.rect().fill('#008').attr('opacity', 0.25);
+    //     selectRect.draw(event);
+    //     svgParentObj.on("mousemove", function(event){
+    //         // console.log('move', event);
+    //         notes.forEach(function(noteElem){
+    //             var intersecting = svgParentObj.node.checkIntersection(noteElem.node, selectRect.node.getBBox());
+    //             if(intersecting) selectedElements.add(noteElem);
+    //             else selectedElements.delete(noteElem);
+    //         });
+    //     })
+    // });
+    // svgParentObj.on('mouseup', function(event){
+    //     console.log("up", event);
+    //     selectRect.draw('stop', event);
+    //     selectRect.remove();
+    //     svgParentObj.off("mousemove");
 
-    });  
+    // });  
     window.addEventListener('mouseup', function(event){
         console.log("window up", event);
-        selectRect.draw('stop', event);
-        selectRect.remove();
-        svgParentObj.off("mousemove");
+        if(selectRect) {
+            if(selectedElements.size > 0 ){
+                attachMultiSelectListeners(selectedElements, setMultiSelectListeners);
+            }
+            selectRect.draw('stop', event);
+            selectRect.remove();
+            svgParentObj.off("mousemove");
+            selectRect = null;
+        }
     });
 
 
-    // backgroundElements_.forEach(function(elem){
-    //     elem.on('mousedown', function(event){
-    //         selectRect = svgParentObj.rect();
-    //         selectRect.draw(event);
-    //         console.log("down", event);
-    //     });
-    //     elem.on('mouseup', function(event){
-    //         console.log("up", event);
-    //         selectRect.draw('stop', event);
-    //         selectRect.remove();
-    //     });  
-    // });
+    backgroundElements_.forEach(function(elem){
+        elem.on('mousedown', function(event){
+            console.log("down", event);
+            if(selectRect) selectRect.remove();
+            removeMultiSelectListeners(selectedElements);
+            selectedElements.forEach(noteElem => noteElem.stroke("#000"));
+            selectedElements.clear();
+            selectRect = svgParentObj.rect().fill('#008').attr('opacity', 0.25);
+            selectRect.draw(event);
+            svgParentObj.on("mousemove", function(event){
+                // console.log('move', event);
+                Object.keys(notes).forEach(function(noteId){
+                    var noteElem = notes[noteId];
+                    
+                    var intersecting = svgParentObj.node.checkIntersection(noteElem.node, selectRect.node.getBBox());
+                    if(intersecting) {
+                        selectedElements.add(noteElem);
+                        noteElem.stroke("#fff");
+                    }
+                    else {
+                        selectedElements.delete(noteElem);
+                        noteElem.stroke("#000");
+                    }
+                });
+            })
+        });
+        // elem.on('mouseup', function(event){
+        //     console.log("up", event);
+        //     selectRect.draw('stop', event);
+        //     selectRect.remove();
+        // });  
+    });
 
     // document.addEventListener('keydown', (event) => {
     //     if(event.key === 's'){
@@ -209,7 +242,8 @@ SVG.on(document, 'DOMContentLoaded', function() {
     l2.noteId = 1;
     Object.keys(notes).forEach(function(key){ //adding snap-to-grid
         note = notes[key];
-        note.draggable().selectize().resize().on('dragend', function(event){ snapPositionToGrid(this, xSnap, ySnap)});
+        note.draggable().selectize({rotationPoint: false, points:["r", "l"]}).resize()
+            .on('dragend', function(event){ snapPositionToGrid(this, xSnap, ySnap)});
     });
 
 
@@ -234,7 +268,7 @@ function attachMultiSelectListeners(selectedElements_, modHandlers){
 }
 
 function removeMultiSelectListeners(selectedElements_){
-    selectedElements.forEach(function(elem){
+    selectedElements_.forEach(function(elem){
         elem.off('beforedrag');
         elem.off('dragmove');
         elem.off('dragend');
@@ -244,9 +278,13 @@ function removeMultiSelectListeners(selectedElements_){
 
 /*
 WORKING BUG LOG
-- Clicking on notes snaps them all to grid - not necessarily technically a had fix but need to 
+- Clicking on notes snaps them all to grid - not necessarily technically a hard fix but need to 
   decide how auto-snapping will work, and need to make it work with resizing (snap start position
   on resize, but using a new function that doesn't "move" the whole note, just the start position?)
+- mouseup doesn't properly get registered on background elements, drawing multi-select rect by 
+  listening on the base svg element instead
+    - workaround seems to be working successfully 
+- mousedrag selection doesn't seem to be intersecting correctly with the note-line elements
 */
 
 
