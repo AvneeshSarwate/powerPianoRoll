@@ -138,7 +138,7 @@ function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
     var svgElem = svgParentObj.node;
  
     window.addEventListener('mouseup', function(event){
-        console.log("window up", event);
+        // console.log("window up", event);
 
         //end a multi-select drag gesture
         if(selectRect) {
@@ -155,10 +155,9 @@ function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
 
     backgroundElements_.forEach(function(elem){
         elem.on('mousedown', function(event){
-            console.log("down", event);
+            // console.log("down", event);
 
             //clear previous mouse multi-select gesture state
-            if(selectRect) selectRect.remove();
             removeMultiSelectListeners(selectedElements);
             selectedElements.forEach(noteElem => deselectNote(noteElem));
 
@@ -173,6 +172,7 @@ function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
                     
                     var intersecting = svgParentObj.node.checkIntersection(noteElem.node, selectRect.node.getBBox());
                     if(intersecting) {
+                        // console.log([noteElem.y()], selectRect.node.getBBox())
                         selectNote(noteElem);                        
                     }
                     else {
@@ -200,8 +200,8 @@ SVG.on(document, 'DOMContentLoaded', function() {
     attachMouseModifierHandlers(backgroundElements, draw);
 
     //set up the manipulatable elements (which will later be the notes)
-    l1 = draw.line(0, 300, 200, 300).stroke({width: 10});
-    l2 = draw.line(0, 100, 200, 100).stroke({width: 10});
+    l1 = draw.line(0, 300, 200, 300).stroke({width: 40});
+    l2 = draw.line(0, 100, 200, 100).stroke({width: 40});
 
     //every new note created will have a newly generated noteId. this
     //is a quick setup to show what the note management will look like
@@ -227,10 +227,12 @@ function attachMultiSelectListeners(selectedElements_, modHandlers){
 }
 
 function removeMultiSelectListeners(selectedElements_){
+    console.log("remove multi", selectedElements_);
     selectedElements_.forEach(function(elem){
         elem.off('beforedrag');
         elem.off('dragmove');
         elem.off('dragend');
+        elem.off('resizing');
         elem.on('dragend', function(event){snapPositionToGrid(this, xSnap, ySnap)})
     });
 }
