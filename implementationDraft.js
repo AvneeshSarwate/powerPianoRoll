@@ -8,7 +8,8 @@ In general, aiming for Ableton piano-roll feature parity wrt mouse interaction (
 shortcuts are trivial to implement if you can get the mouse stuff right)
 
 order of library features to test (for each, make sure they're sensible under viewbox zoom too):
-NOTE - this is only a test of INTERACTIONS - the look is ugly and the code is organized for quick hacking
+NOTE - this is only a test of INTERACTIONS - the look is ugly and the code is organized for quick hacking.
+How note-state <-> note-svg-elements is handled is still TBD. 
 
 - X - dragging behavior 
 - X - dragging and snap to grid
@@ -75,15 +76,16 @@ SVG.on(document, 'DOMContentLoaded', function() {
     l1 = svgRoot.line(0, 300, 200, 300).stroke({width: noteHeight});
     l2 = svgRoot.line(0, 100, 200, 100).stroke({width: noteHeight});
 
-    // Evvery new note created will have a newly generated noteId. This
-    // is a quick setup to show what the note management will look like.
-    notes = {0: l1, 1: l2};
+    // Every new note created will have a newly generated noteId. This
+    // is a quick setup to show what the note management could possibly look like.
+    notes = {0: {elem: l1, info:{}}, 1: {elem: l2, info:{}}};
     l1.noteId = 0;
     l2.noteId = 1;
     Object.keys(notes).forEach(function(key){ //adding snap-to-grid
-        note = notes[key];
-        note.draggable().selectize({rotationPoint: false, points:["r", "l"]}).resize()
+        var noteElem = notes[key].elem;
+        noteElem.draggable().selectize({rotationPoint: false, points:["r", "l"]}).resize()
             .on('dragend', function(event){ snapPositionToGrid(this, xSnap, ySnap)});
+            //todo - update/broadcast underlying note info, for both dragend and resizedone
     });
 
 
@@ -105,21 +107,21 @@ function refreshNoteModStartReference(noteIds){
     noteModStartReference = {};
     noteIds.forEach(function(id){ 
         noteModStartReference[id] = {
-            x:  notes[id].x(), 
-            y:  notes[id].y(), 
+            x:  notes[id].elem.x(), 
+            y:  notes[id].elem.y(), 
             //x1 is the same as x() when using a line, but keeps 
             //properties for drag/resize separate and more readable for now
-            x1: notes[id].attr('x1'), 
-            x2: notes[id].attr('x2')
+            x1: notes[id].elem.attr('x1'), 
+            x2: notes[id].elem.attr('x2')
         };
     });
 }
 
 // sets event handlers on each note element for position/resize multi-select changes
 function setMultiSelectListenersOnElement(noteElement){
-    var noteIds = Array.from(selectedElements).map(elem => elem.noteId);
+    var selectedNoteIds = Array.from(selectedElements).map(elem => elem.noteId);
 
-     refreshNoteModStartReference(noteIds);
+     refreshNoteModStartReference(selectedNoteIds);
 
     /* Performs the same drag deviation done on the clicked element to 
      * the other selected elements
@@ -128,10 +130,10 @@ function setMultiSelectListenersOnElement(noteElement){
         var xMove = this.x() - noteModStartReference[this.noteId].x;
         var yMove = this.y() - noteModStartReference[this.noteId].y;
         var thisId = this.noteId;
-        noteIds.forEach(function(id){
+        selectedNoteIds.forEach(function(id){
             if(id != thisId) {
-                notes[id].x(noteModStartReference[id].x + xMove);
-                notes[id].y(noteModStartReference[id].y + yMove);
+                notes[id].elem.x(noteModStartReference[id].x + xMove);
+                notes[id].elem.y(noteModStartReference[id].y + yMove);
             }
         });
     });
@@ -146,10 +148,11 @@ function setMultiSelectListenersOnElement(noteElement){
     noteElement.draggable().on('dragend', function(event){
         selectedElements.forEach(function(elem){
             snapPositionToGrid(elem, xSnap, ySnap); 
-
-            //refresh the startReference so the next multi-select-transform works right
-            refreshNoteModStartReference(noteIds);
         });
+        //refresh the startReference so the next multi-select-transform works right
+        refreshNoteModStartReference(selectedNoteIds);
+
+        //todo - update/broadcast underlying note info
     });
 
     /* Performs the same resizing done on the clicked element to 
@@ -159,18 +162,19 @@ function setMultiSelectListenersOnElement(noteElement){
         var oldX1 = noteModStartReference[this.noteId].x1;
         var isEndChange = this.attr('x1') === oldX1;
         var thisId = this.noteId;
-        noteIds.forEach(function(id){
+        selectedNoteIds.forEach(function(id){
             if(id != thisId){
                 var oldNoteVals = noteModStartReference[id];
-                if(isEndChange) notes[id].attr('x2', oldNoteVals.x2 + event.detail.dx);
-                else notes[id].attr('x1', oldNoteVals.x1 + event.detail.dx);
+                if(isEndChange) notes[id].elem.attr('x2', oldNoteVals.x2 + event.detail.dx);
+                else notes[id].elem.attr('x1', oldNoteVals.x1 + event.detail.dx);
             }
         });
     });
 
     //refresh the startReference so the next multi-select-transform works right
     noteElement.on('resizedone', function(event){
-        refreshNoteModStartReference(noteIds);
+        refreshNoteModStartReference(selectedNoteIds);
+        //todo - update/broadcast underlying note info
     })
 }
 
@@ -183,6 +187,7 @@ function removeMultiSelectListeners(selectedElements_){
         elem.off('dragend');
         elem.off('resizing');
         elem.on('dragend', function(event){snapPositionToGrid(this, xSnap, ySnap)})
+        //todo - re-attach individual handler to update/broadcast underlying note info, for both dragend and resizedone
     });
 }
 
@@ -263,7 +268,7 @@ function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
                 
                 //select notes which intersect with the selectRect (mouse selection area)
                 Object.keys(notes).forEach(function(noteId){
-                    var noteElem = notes[noteId];
+                    var noteElem = notes[noteId].elem;
                     
                     // var intersecting = svgParentObj.node.checkIntersection(noteElem.node, selectRect.node.getBBox());
                     var intersecting = selectRectIntersection(selectRect, noteElem);
