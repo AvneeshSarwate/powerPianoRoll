@@ -120,33 +120,27 @@ function setMultiSelectListeners(noteElement){
 }
 
 
+function selectNote(noteElem){
+    selectedElements.add(noteElem);
+    noteElem.stroke("#fff");
+}
+
+function deselectNote(noteElem){
+    selectedElements.delete(noteElem);
+    noteElem.stroke("#000");
+}
+
+function selectRectIntersection(selectRect_, noteElem){
+
+}
+
 function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
     var svgElem = svgParentObj.node;
-
-    // svgParentObj.on('mousedown', function(event){
-    //     console.log("down", event);
-    //     if(selectRect) selectRect.remove();
-    //     selectedElements.clear();
-    //     selectRect = svgParentObj.rect().fill('#008').attr('opacity', 0.25);
-    //     selectRect.draw(event);
-    //     svgParentObj.on("mousemove", function(event){
-    //         // console.log('move', event);
-    //         notes.forEach(function(noteElem){
-    //             var intersecting = svgParentObj.node.checkIntersection(noteElem.node, selectRect.node.getBBox());
-    //             if(intersecting) selectedElements.add(noteElem);
-    //             else selectedElements.delete(noteElem);
-    //         });
-    //     })
-    // });
-    // svgParentObj.on('mouseup', function(event){
-    //     console.log("up", event);
-    //     selectRect.draw('stop', event);
-    //     selectRect.remove();
-    //     svgParentObj.off("mousemove");
-
-    // });  
+ 
     window.addEventListener('mouseup', function(event){
         console.log("window up", event);
+
+        //end a multi-select drag gesture
         if(selectRect) {
             if(selectedElements.size > 0 ){
                 attachMultiSelectListeners(selectedElements, setMultiSelectListeners);
@@ -162,60 +156,34 @@ function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
     backgroundElements_.forEach(function(elem){
         elem.on('mousedown', function(event){
             console.log("down", event);
+
+            //clear previous mouse multi-select gesture state
             if(selectRect) selectRect.remove();
             removeMultiSelectListeners(selectedElements);
-            selectedElements.forEach(noteElem => noteElem.stroke("#000"));
-            selectedElements.clear();
+            selectedElements.forEach(noteElem => deselectNote(noteElem));
+
+            //restart new mouse multi-select gesture
             selectRect = svgParentObj.rect().fill('#008').attr('opacity', 0.25);
             selectRect.draw(event);
             svgParentObj.on("mousemove", function(event){
-                // console.log('move', event);
+                
+                //select notes which intersect with the selectRect (mouse selection area)
                 Object.keys(notes).forEach(function(noteId){
                     var noteElem = notes[noteId];
                     
                     var intersecting = svgParentObj.node.checkIntersection(noteElem.node, selectRect.node.getBBox());
                     if(intersecting) {
-                        selectedElements.add(noteElem);
-                        noteElem.stroke("#fff");
+                        selectNote(noteElem);                        
                     }
                     else {
-                        selectedElements.delete(noteElem);
-                        noteElem.stroke("#000");
+                        deselectNote(noteElem)
                     }
                 });
             })
-        });
-        // elem.on('mouseup', function(event){
-        //     console.log("up", event);
-        //     selectRect.draw('stop', event);
-        //     selectRect.remove();
-        // });  
+        }); 
     });
-
-    // document.addEventListener('keydown', (event) => {
-    //     if(event.key === 's'){
-    //         selectRect = svgParentObj.rect();
-
-    //         svgParentObj.on('mousedown', function(event){
-    //             selectRect.draw(event);
-    //             console.log("down", event);
-    //         }, false);
-    //         svgParentObj.on('mouseup', function(event){
-    //             console.log("up", event);
-    //             selectRect.draw('stop', event);
-    //         }, false)
-    //     }
-    // });
-    // document.addEventListener('keyup', (event) => {
-    //     if(event.key === 's'){
-    //         svgParentObj.off('mousedown');
-    //         svgParentObj.off('mouseup');
-    //         selectRect.remove();
-    //     }
-    // });
 }
 
-// function setUpParentSVG
 
 SVG.on(document, 'DOMContentLoaded', function() {
 
@@ -246,15 +214,6 @@ SVG.on(document, 'DOMContentLoaded', function() {
             .on('dragend', function(event){ snapPositionToGrid(this, xSnap, ySnap)});
     });
 
-
-
-    
-    /* this will be the end-state of a select mouse gesture that ranges
-     * over some set of note elements. Again, just a quick hack setup to
-     * test the interaction 
-     */
-    // selectedElements = [l1, l2];
-    // attachMultiSelectListeners(selectedElements, setMultiSelectListeners);
 
     /* the onscreen view area (the root SVG element) is only 300x300, but we have drawn shapes 
      * that are contained in a 400x400 box. the SVG viewbox feature lets you draw arbitraily  
