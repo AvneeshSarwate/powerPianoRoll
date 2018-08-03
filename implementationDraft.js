@@ -42,12 +42,6 @@ var noteModStartReference;
 //structure tracking both note info and note svg element state
 var notes = {};
 
-//snap to grid quantization sizes
-var xSnap = 200; //x-variable will change depending on user quantization choice
-var ySnap = 50;
-
-var noteHeight = 40;
-
 //elements selected by a mouse-region highlight
 var selectedElements = new Set();
 var selectRect; //the variable holding the mouse-region highlight svg rectabgle 
@@ -56,60 +50,26 @@ var selectRect; //the variable holding the mouse-region highlight svg rectabgle
 var backgroundElements;
 
 
-SVG.on(document, 'DOMContentLoaded', function() {
 
-    // set up a background against which you can see elements  
-    // (this will later be the piano roll backdrop)
-    // var boxSize = 200;
-    // svgRoot = SVG('drawing').attr('id', 'pianoRollSVG').size(300, 300);
-    // var rect = svgRoot.rect(boxSize, boxSize).attr({ fill: '#f06' });
-    // var rect2 = svgRoot.rect(boxSize, boxSize).attr({ fill: '#0f6' }).move(boxSize, 0);
-    // var rect3 = svgRoot.rect(boxSize, boxSize).attr({ fill: '#60f' }).move(0, boxSize);
-    // var rect4 = svgRoot.rect(boxSize, boxSize).attr({ fill: '#f60' }).move(boxSize, boxSize);
-    // backgroundElements = new Set([rect, rect2, rect3, rect4]);
-    drawBackground();
-    return;
-    // attach the interaction handlers for various gestures - currently just mouse-multi select
-    // of notes, will later also attach handlers for ableton "draw mode" style interaction
-    attachMouseModifierHandlers(backgroundElements, svgRoot);
-
-    //set up the manipulatable elements (which will later be the notes)
-    l1 = svgRoot.line(0, 300, 200, 300).stroke({width: noteHeight});
-    l2 = svgRoot.line(0, 100, 200, 100).stroke({width: noteHeight});
-
-    // Every new note created will have a newly generated noteId. This
-    // is a quick setup to show what the note management could possibly look like.
-    notes = {0: {elem: l1, info:{}}, 1: {elem: l2, info:{}}};
-    l1.noteId = 0;
-    l2.noteId = 1;
-    Object.keys(notes).forEach(function(key){ //adding snap-to-grid
-        var noteElem = notes[key].elem;
-        noteElem.draggable().selectize({rotationPoint: false, points:["r", "l"]}).resize()
-            .on('dragend', function(event){ snapPositionToGrid(this, xSnap, ySnap)});
-            //todo - update/broadcast underlying note info, for both dragend and resizedone
-    });
-
-
-    /* the onscreen view area (the root SVG element) is only 300x300, but we have drawn shapes 
-     * that are contained in a 400x400 box. the SVG viewbox feature lets you draw arbitraily  
-     * sized images and then view them at whatever scale you want in your view area
-     */
-    svgRoot.viewbox(0, 0, 1280, 720);
-});
-
-var quarterNoteWidth = 120;
-var noteHeight = 20;
+var quarterNoteWidth = 120; //in pixels
+var noteHeight = 20; //in pixels
 var whiteNotes = [0, 2, 4, 5, 7, 9, 11];
 var noteSubDivision = 16; //where to draw lines and snap to grid
-var timeSignature = 4/4;
+var timeSignature = 4/4; //b
 var numMeasures = 100;
 // Every quarter note region of the background will be alternately colored.
 // In ableton this changes on zoom level
 var sectionColoringDivision = 4; 
 var NUM_MIDI_NOTES = 128;
 
+//snap to grid quantization sizes
+var xSnap = 1; //x-variable will change depending on user quantization choice, or be vertLineSpace as calculated below
+var ySnap = noteHeight;
+
 var backgroundColor1 = '#ddd';
 var backgroundColor2 = '#bbb';
+var noteColor = '#f23';
+var selectedNoteColor = '#2ee'
 var thickLineWidth = 1.8;
 var thinLineWidth = 1;
 
@@ -119,6 +79,7 @@ function drawBackground() {
     var pianoRollWidth = quarterNoteWidth * pulsesPerMeasure * numMeasures;
     var numVertLines = numMeasures * pulsesPerMeasure * (noteSubDivision / 4);
     var vertLineSpace = pianoRollWidth / numVertLines;
+    xSnap = vertLineSpace;
     var measureWidth = quarterNoteWidth*pulsesPerMeasure;
     svgRoot = SVG('drawing').attr('id', 'pianoRollSVG').size(1280, 720);
 
@@ -140,10 +101,53 @@ function drawBackground() {
     }
 }
 
+
+SVG.on(document, 'DOMContentLoaded', function() {
+
+    // set up a background against which you can see elements  
+    // (this will later be the piano roll backdrop)
+    // var boxSize = 200;
+    // svgRoot = SVG('drawing').attr('id', 'pianoRollSVG').size(300, 300);
+    // var rect = svgRoot.rect(boxSize, boxSize).attr({ fill: '#f06' });
+    // var rect2 = svgRoot.rect(boxSize, boxSize).attr({ fill: '#0f6' }).move(boxSize, 0);
+    // var rect3 = svgRoot.rect(boxSize, boxSize).attr({ fill: '#60f' }).move(0, boxSize);
+    // var rect4 = svgRoot.rect(boxSize, boxSize).attr({ fill: '#f60' }).move(boxSize, boxSize);
+    // backgroundElements = new Set([rect, rect2, rect3, rect4]);
+    drawBackground();
+
+    // attach the interaction handlers for various gestures - currently just mouse-multi select
+    // of notes, will later also attach handlers for ableton "draw mode" style interaction
+    attachMouseModifierHandlers(backgroundElements, svgRoot);
+
+    //set up the manipulatable elements (which will later be the notes)
+    l1 = svgRoot.line(0, 310, 200, 310).stroke({width: noteHeight, color: noteColor});
+    l2 = svgRoot.line(0, 110, 200, 110).stroke({width: noteHeight, color: noteColor});
+
+    // Every new note created will have a newly generated noteId. This
+    // is a quick setup to show what the note management could possibly look like.
+    notes = {0: {elem: l1, info:{}}, 1: {elem: l2, info:{}}};
+    l1.noteId = 0;
+    l2.noteId = 1;
+    Object.keys(notes).forEach(function(key){ //adding snap-to-grid
+        var noteElem = notes[key].elem;
+        noteElem.draggable().selectize({rotationPoint: false, points:["r", "l"]}).resize()
+            .on('dragend', function(event){ snapPositionToGrid(this, xSnap, ySnap)});
+            //todo - update/broadcast underlying note info, for both dragend and resizedone
+    });
+
+
+    /* the onscreen view area (the root SVG element) is only 300x300, but we have drawn shapes 
+     * that are contained in a 400x400 box. the SVG viewbox feature lets you draw arbitraily  
+     * sized images and then view them at whatever scale you want in your view area
+     */
+    svgRoot.viewbox(0, 0, 1280, 720);
+});
+
+
 //function that snapes note svg elements into place
 function snapPositionToGrid(elem, xSize, ySize){
     elem.x(Math.round(elem.x()/xSize) * xSize);
-    elem.y(Math.round(elem.y()/ySize) * ySize);
+    elem.y(Math.round(elem.y()/ySize) * ySize + ySize/2); //because we're using lines instead of rectangles
 }
 
 // Resets the "start" positions/sizes of notes for multi-select transformations to current position/sizes
@@ -238,12 +242,12 @@ function removeMultiSelectListeners(selectedElements_){
 
 function selectNote(noteElem){
     selectedElements.add(noteElem);
-    noteElem.stroke("#fff");
+    noteElem.stroke(selectedNoteColor);
 }
 
 function deselectNote(noteElem){
     selectedElements.delete(noteElem);
-    noteElem.stroke("#000");
+    noteElem.stroke(noteColor);
 }
 
 // calculates if a note intersects with the mouse-multiselect rectangle
