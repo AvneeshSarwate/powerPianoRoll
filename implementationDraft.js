@@ -60,14 +60,15 @@ SVG.on(document, 'DOMContentLoaded', function() {
 
     // set up a background against which you can see elements  
     // (this will later be the piano roll backdrop)
-    var boxSize = 200;
-    svgRoot = SVG('drawing').attr('id', 'pianoRollSVG').size(300, 300);
-    var rect = svgRoot.rect(boxSize, boxSize).attr({ fill: '#f06' });
-    var rect2 = svgRoot.rect(boxSize, boxSize).attr({ fill: '#0f6' }).move(boxSize, 0);
-    var rect3 = svgRoot.rect(boxSize, boxSize).attr({ fill: '#60f' }).move(0, boxSize);
-    var rect4 = svgRoot.rect(boxSize, boxSize).attr({ fill: '#f60' }).move(boxSize, boxSize);
-    backgroundElements = [rect, rect2, rect3, rect4];
-
+    // var boxSize = 200;
+    // svgRoot = SVG('drawing').attr('id', 'pianoRollSVG').size(300, 300);
+    // var rect = svgRoot.rect(boxSize, boxSize).attr({ fill: '#f06' });
+    // var rect2 = svgRoot.rect(boxSize, boxSize).attr({ fill: '#0f6' }).move(boxSize, 0);
+    // var rect3 = svgRoot.rect(boxSize, boxSize).attr({ fill: '#60f' }).move(0, boxSize);
+    // var rect4 = svgRoot.rect(boxSize, boxSize).attr({ fill: '#f60' }).move(boxSize, boxSize);
+    // backgroundElements = new Set([rect, rect2, rect3, rect4]);
+    drawBackground();
+    return;
     // attach the interaction handlers for various gestures - currently just mouse-multi select
     // of notes, will later also attach handlers for ableton "draw mode" style interaction
     attachMouseModifierHandlers(backgroundElements, svgRoot);
@@ -93,8 +94,50 @@ SVG.on(document, 'DOMContentLoaded', function() {
      * that are contained in a 400x400 box. the SVG viewbox feature lets you draw arbitraily  
      * sized images and then view them at whatever scale you want in your view area
      */
-    svgRoot.viewbox(0, 0, 400, 400);
+    svgRoot.viewbox(0, 0, 1280, 720);
 });
+
+var quarterNoteWidth = 120;
+var noteHeight = 20;
+var whiteNotes = [0, 2, 4, 5, 7, 9, 11];
+var noteSubDivision = 16; //where to draw lines and snap to grid
+var timeSignature = 4/4;
+var numMeasures = 100;
+// Every quarter note region of the background will be alternately colored.
+// In ableton this changes on zoom level
+var sectionColoringDivision = 4; 
+var NUM_MIDI_NOTES = 128;
+
+var backgroundColor1 = '#eee';
+var backgroundColor2 = '#ddd';
+var thickLineWidth = 4;
+var thinLineWidth = 2;
+
+function drawBackground() {
+    var pianoRollHeight = noteHeight * NUM_MIDI_NOTES;
+    var pulsesPerMeasure = timeSignature * 4;
+    var pianoRollWidth = quarterNoteWidth * pulsesPerMeasure * numMeasures;
+    var numVertLines = numMeasures * pulsesPerMeasure * (noteSubDivision / 4);
+    var vertLineSpace = pianoRollWidth / vertLineSpace;
+    svgRoot = SVG('drawing').attr('id', 'pianoRollSVG').size(1280, 720);
+
+    backgroundElements = new Set();
+    for(var i = 0; i < numMeasures; i++){
+        var color = i % 2 == 0 ? backgroundColor1 : backgroundColor2;
+        var panel = svgRoot.rect(i*numMeasures, 0, quarterNoteWidth*pulsesPerMeasure, pianoRollHeight).fill(color);
+        backgroundElements.add(panel);
+    }
+    for(var i = 1; i < numVertLines; i++){
+        var xPos = i*vertLineSpace;
+        var strokeWidth = xPos % quarterNoteWidth == 0 ? thickLineWidth : thinLineWidth;
+        var line = svgRoot.line(xPos, 0, xPos, pianoRollHeight).stroke({width: strokeWidth});
+        backgroundElements.add(line);
+    }
+    for(var i = 1; i < NUM_MIDI_NOTES; i++){
+        var line = svgRoot.line(0, i*noteHeight, pianoRollWidth, i*noteHeight);
+        backgroundElements.add(line);
+    }
+}
 
 //function that snapes note svg elements into place
 function snapPositionToGrid(elem, xSize, ySize){
