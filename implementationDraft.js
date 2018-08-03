@@ -108,23 +108,24 @@ var numMeasures = 100;
 var sectionColoringDivision = 4; 
 var NUM_MIDI_NOTES = 128;
 
-var backgroundColor1 = '#eee';
-var backgroundColor2 = '#ddd';
-var thickLineWidth = 4;
-var thinLineWidth = 2;
+var backgroundColor1 = '#ddd';
+var backgroundColor2 = '#bbb';
+var thickLineWidth = 1.8;
+var thinLineWidth = 1;
 
 function drawBackground() {
     var pianoRollHeight = noteHeight * NUM_MIDI_NOTES;
     var pulsesPerMeasure = timeSignature * 4;
     var pianoRollWidth = quarterNoteWidth * pulsesPerMeasure * numMeasures;
     var numVertLines = numMeasures * pulsesPerMeasure * (noteSubDivision / 4);
-    var vertLineSpace = pianoRollWidth / vertLineSpace;
+    var vertLineSpace = pianoRollWidth / numVertLines;
+    var measureWidth = quarterNoteWidth*pulsesPerMeasure;
     svgRoot = SVG('drawing').attr('id', 'pianoRollSVG').size(1280, 720);
 
     backgroundElements = new Set();
     for(var i = 0; i < numMeasures; i++){
         var color = i % 2 == 0 ? backgroundColor1 : backgroundColor2;
-        var panel = svgRoot.rect(i*numMeasures, 0, quarterNoteWidth*pulsesPerMeasure, pianoRollHeight).fill(color);
+        var panel = svgRoot.rect(measureWidth, pianoRollHeight).move(i*measureWidth, 0).fill(color);
         backgroundElements.add(panel);
     }
     for(var i = 1; i < numVertLines; i++){
@@ -134,7 +135,7 @@ function drawBackground() {
         backgroundElements.add(line);
     }
     for(var i = 1; i < NUM_MIDI_NOTES; i++){
-        var line = svgRoot.line(0, i*noteHeight, pianoRollWidth, i*noteHeight);
+        var line = svgRoot.line(0, i*noteHeight, pianoRollWidth, i*noteHeight).stroke({width: thinLineWidth});
         backgroundElements.add(line);
     }
 }
