@@ -17,11 +17,11 @@ How note-state <-> note-svg-elements is handled is still TBD.
 - X - multiselection + dragging via mouse
 - X - multiselection + dragging + snap to grid
 - X - multiselection and ableton style note length resizing
-- ish - multiselected resizing + snap to grid
-    - doable, but design choices necessary 
-- implement double-click to add note interaction (should be straightforwards, svg-wise)
+- X - multiselected resizing + snap to grid
+    - done, but design choices necessary 
 - figure out good UI for viewbox resizing/position control and scroll (panzoom plugin if necessary?)
     - figure out how to map mouse coordinates to SVG coordinates
+- implement double-click to add note interaction (should be straightforwards, svg-wise)
 - figure out cursor animation and viewbox movement for a playing piano roll
 - decide how to do ableton "draw mode" style interaction (shouldn't require any new funky 
  SVG behavior, but will likely be tricky wrt UI-state management)
@@ -104,15 +104,6 @@ function drawBackground() {
 
 SVG.on(document, 'DOMContentLoaded', function() {
 
-    // set up a background against which you can see elements  
-    // (this will later be the piano roll backdrop)
-    // var boxSize = 200;
-    // svgRoot = SVG('drawing').attr('id', 'pianoRollSVG').size(300, 300);
-    // var rect = svgRoot.rect(boxSize, boxSize).attr({ fill: '#f06' });
-    // var rect2 = svgRoot.rect(boxSize, boxSize).attr({ fill: '#0f6' }).move(boxSize, 0);
-    // var rect3 = svgRoot.rect(boxSize, boxSize).attr({ fill: '#60f' }).move(0, boxSize);
-    // var rect4 = svgRoot.rect(boxSize, boxSize).attr({ fill: '#f60' }).move(boxSize, boxSize);
-    // backgroundElements = new Set([rect, rect2, rect3, rect4]);
     drawBackground();
 
     // attach the interaction handlers for various gestures - currently just mouse-multi select
@@ -120,8 +111,6 @@ SVG.on(document, 'DOMContentLoaded', function() {
     attachMouseModifierHandlers(backgroundElements, svgRoot);
 
     //set up the manipulatable elements (which will later be the notes)
-    // l1 = svgRoot.line(0, 310, 200, 310).stroke({width: noteHeight, color: noteColor});
-    // l2 = svgRoot.line(0, 110, 200, 110).stroke({width: noteHeight, color: noteColor});
     l1 = svgRoot.rect(quarterNoteWidth, noteHeight).move(0, 100).fill(noteColor);
     l2 = svgRoot.rect(quarterNoteWidth, noteHeight).move(0, 300).fill(noteColor);
 
@@ -143,8 +132,18 @@ SVG.on(document, 'DOMContentLoaded', function() {
      * sized images and then view them at whatever scale you want in your view area
      */
     svgRoot.viewbox(0, 0, 1280, 720);
+
+    $('#drawing').keydown(keydownHandler);
+    $('#drawing').keyup(keyupHandler);
 });
 
+function keydownHandler(event){
+    console.log(event);
+}
+
+function keyupHandler(event){
+    console.log(event);
+}
 
 //function that snapes note svg elements into place
 function snapPositionToGrid(elem, xSize, ySize){
