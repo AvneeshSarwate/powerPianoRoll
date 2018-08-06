@@ -120,8 +120,10 @@ SVG.on(document, 'DOMContentLoaded', function() {
     attachMouseModifierHandlers(backgroundElements, svgRoot);
 
     //set up the manipulatable elements (which will later be the notes)
-    l1 = svgRoot.line(0, 310, 200, 310).stroke({width: noteHeight, color: noteColor});
-    l2 = svgRoot.line(0, 110, 200, 110).stroke({width: noteHeight, color: noteColor});
+    // l1 = svgRoot.line(0, 310, 200, 310).stroke({width: noteHeight, color: noteColor});
+    // l2 = svgRoot.line(0, 110, 200, 110).stroke({width: noteHeight, color: noteColor});
+    l1 = svgRoot.rect(quarterNoteWidth, noteHeight).move(0, 100).fill(noteColor);
+    l2 = svgRoot.rect(quarterNoteWidth, noteHeight).move(0, 300).fill(noteColor);
 
     // Every new note created will have a newly generated noteId. This
     // is a quick setup to show what the note management could possibly look like.
@@ -147,7 +149,7 @@ SVG.on(document, 'DOMContentLoaded', function() {
 //function that snapes note svg elements into place
 function snapPositionToGrid(elem, xSize, ySize){
     elem.x(Math.round(elem.x()/xSize) * xSize);
-    elem.y(Math.round(elem.y()/ySize) * ySize + ySize/2); //because we're using lines instead of rectangles
+    elem.y(Math.round(elem.y()/ySize) * ySize); //because we're using lines instead of rectangles
 }
 
 // Resets the "start" positions/sizes of notes for multi-select transformations to current position/sizes
@@ -157,10 +159,8 @@ function refreshNoteModStartReference(noteIds){
         noteModStartReference[id] = {
             x:  notes[id].elem.x(), 
             y:  notes[id].elem.y(), 
-            //x1 is the same as x() when using a line, but keeps 
-            //properties for drag/resize separate and more readable for now
-            x1: notes[id].elem.attr('x1'), 
-            x2: notes[id].elem.attr('x2')
+            width: notes[id].elem.width(), 
+            height: notes[id].elem.height()
         };
     });
 }
@@ -207,14 +207,20 @@ function setMultiSelectListenersOnElement(noteElement){
      * the other selected elements
      */
     noteElement.on('resizing', function(event){
-        var oldX1 = noteModStartReference[this.noteId].x1;
-        var isEndChange = this.attr('x1') === oldX1;
+        var oldX = noteModStartReference[this.noteId].x;
+        var isEndChange = this.x() === oldX; //i.e, whehter you're moving the "start" or "end" of the note
         var thisId = this.noteId;
         selectedNoteIds.forEach(function(id){
             if(id != thisId){
                 var oldNoteVals = noteModStartReference[id];
-                if(isEndChange) notes[id].elem.attr('x2', oldNoteVals.x2 + event.detail.dx);
-                else notes[id].elem.attr('x1', oldNoteVals.x1 + event.detail.dx);
+                if(isEndChange) { 
+                    notes[id].elem.width(oldNoteVals.width + event.detail.dx);
+                }
+                else { 
+                    notes[id].elem.width(oldNoteVals.width - event.detail.dx);
+                    notes[id].elem.x(oldNoteVals.x + event.detail.dx);
+                }
+                //todo - update/broadcast underlying note info? or just at resizedone?
             }
         });
     });
@@ -242,12 +248,12 @@ function removeMultiSelectListeners(selectedElements_){
 
 function selectNote(noteElem){
     selectedElements.add(noteElem);
-    noteElem.stroke(selectedNoteColor);
+    noteElem.fill(selectedNoteColor);
 }
 
 function deselectNote(noteElem){
     selectedElements.delete(noteElem);
-    noteElem.stroke(noteColor);
+    noteElem.fill(noteColor);
 }
 
 // calculates if a note intersects with the mouse-multiselect rectangle
