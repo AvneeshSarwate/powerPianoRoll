@@ -29,6 +29,7 @@ How note-state <-> note-svg-elements is handled is still TBD.
 */
 
 //public vars to allow live-codable testing in the console
+var bound = (n, l, h) => Math.min(h, Math.max(l, n));
 
 var svgRoot; //the svg root element
 
@@ -83,10 +84,13 @@ function svgMouseCoord(evt){
   return refPt.matrixTransform(svgRoot.node.getScreenCTM().inverse());
 }
 
+var pianoRollHeight;
+var pianoRollWidth
+
 function drawBackground() {
-    var pianoRollHeight = noteHeight * NUM_MIDI_NOTES;
+    pianoRollHeight = noteHeight * NUM_MIDI_NOTES;
     var pulsesPerMeasure = timeSignature * 4;
-    var pianoRollWidth = quarterNoteWidth * pulsesPerMeasure * numMeasures;
+    pianoRollWidth = quarterNoteWidth * pulsesPerMeasure * numMeasures;
     var numVertLines = numMeasures * pulsesPerMeasure * (noteSubDivision / 4);
     var vertLineSpace = pianoRollWidth / numVertLines;
     xSnap = vertLineSpace;
@@ -154,22 +158,46 @@ SVG.on(document, 'DOMContentLoaded', function() {
 function mousemoveHandler(event){
     var svgXY = svgMouseCoord(event);
     if(mouseScrollActive){
-        if(mouseDeltaRootNeedsReset){
-            mouseDeltaRoot = svgXY;
-            mouseDeltaRootNeedsReset = false;
+        if(mouseOverFilter % 50 == 1) return;
+        var vb = svgRoot.viewbox();
+        if(mouseScrollRootNeedsReset){
+            mouseScrollRoot = {
+                // mouseX: svgXY.x,
+                // mouseY: svgXY.y,
+                mouseX: event.clientX,
+                mouseY: event.clientY,
+                vbX: vb.x,
+                vbY: vb.y,
+                vbWidth: vb.width,
+                vbHeight: vb.height
+            };
+            mouseScrollRootNeedsReset = false;
+            mouseOverFilter = 0;
+            console.log("scroll root set");
         }
-        // console.log("scrolling mouse", svgMouseCoord(event));
-        console.log("scrolling mouse", svgXY.x - mouseDeltaRoot.x, svgXY.y - mouseDeltaRoot.y);
+
+        // var mouseDetla = {x: svgXY.x - mouseScrollRoot.mouseX, y: svgXY.y - mouseScrollRoot.mouseY};
+        var mouseDetla = {x: event.clientX - mouseScrollRoot.mouseX, y: event.clientY - mouseScrollRoot.mouseY};
+        
+        //inverted scrolling
+        var scrollFactor = 3;
+        var newVBPos = {
+            x: bound(mouseScrollRoot.vbX - mouseDetla.x * scrollFactor, 0, pianoRollWidth - mouseScrollRoot.vbWidth),
+            y: bound(mouseScrollRoot.vbY - mouseDetla.y * scrollFactor, 0, pianoRollHeight - mouseScrollRoot.vbHeight)
+        };
+        console.log("scrolling mouse", mouseDetla, newVBPos);
+        svgRoot.viewbox(newVBPos.x, newVBPos.y, vb.width, vb.height);
     }
 }
 
 
 var mouseScrollActive = false;
-var mouseDeltaRootNeedsReset = true;
-var mouseDeltaRoot = {x: -1, y: -1};
+var mouseScrollRootNeedsReset = true;
+var mouseScrollRoot = {x: -1, y: -1};
+var mouseOverFilter = 0;
 
 function keydownHandler(event){
-    mouseDeltaRootNeedsReset = true;
+    mouseScrollRootNeedsReset = true;
     if(event.ctrlKey){
         mouseScrollActive = true;
         $('#drawing').mousemove(mousemoveHandler);
