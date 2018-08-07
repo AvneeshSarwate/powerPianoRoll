@@ -73,6 +73,9 @@ var noteColor = '#f23';
 var selectedNoteColor = '#2ee'
 var thickLineWidth = 1.8;
 var thinLineWidth = 1;
+var viewportHeight = 720;
+var viewportWidth = 1280;
+var maxZoom;
 
 // Create an SVGPoint for future math
 var refPt; 
@@ -95,8 +98,9 @@ function drawBackground() {
     var vertLineSpace = pianoRollWidth / numVertLines;
     xSnap = vertLineSpace;
     var measureWidth = quarterNoteWidth*pulsesPerMeasure;
-    svgRoot = SVG('drawing').attr('id', 'pianoRollSVG').size(1280, 720);
+    svgRoot = SVG('drawing').attr('id', 'pianoRollSVG').size(viewportWidth, viewportHeight);
     refPt = svgRoot.node.createSVGPoint();
+    maxZoom = viewportHeight / pianoRollHeight;
 
     backgroundElements = new Set();
     for(var i = 0; i < numMeasures; i++){
@@ -146,7 +150,7 @@ SVG.on(document, 'DOMContentLoaded', function() {
      * that are contained in a 400x400 box. the SVG viewbox feature lets you draw arbitraily  
      * sized images and then view them at whatever scale you want in your view area
      */
-    svgRoot.viewbox(0, 0, 1280, 720);
+    svgRoot.viewbox(0, 0, viewportWidth, viewportHeight);
 
     // setMouseMovementHandlers(svgRoot);
 
@@ -180,15 +184,18 @@ function mouseZoomHandler(event){
 
         var zoomChange = (4**(mouseDetla.y/mouseMoveRoot.zoom / mouseMoveRoot.vbHeight));
         var zoomFactor = mouseMoveRoot.zoom * zoomChange;
-        console.log("zoomfactor", zoomFactor);
+        if(zoomFactor < maxZoom) return;
+        
         var svgMouseVBOffsetX = mouseMoveRoot.svgX - mouseMoveRoot.vbX;
         var svgMouseVBOffsetY = mouseMoveRoot.svgY - mouseMoveRoot.vbY;
         var newWidth = mouseMoveRoot.vbWidth/zoomChange;
         var newHeight = mouseMoveRoot.vbHeight/zoomChange;
         var newVBPos = {
-            x: bound(mouseMoveRoot.svgX - svgMouseVBOffsetX/zoomChange, 0, newWidth),
-            y: bound(mouseMoveRoot.svgY - svgMouseVBOffsetY/zoomChange, 0, newHeight)
+            x: bound(mouseMoveRoot.svgX - svgMouseVBOffsetX/zoomChange, 0, pianoRollWidth - newWidth),
+            y: bound(mouseMoveRoot.svgY - svgMouseVBOffsetY/zoomChange, 0, pianoRollHeight - newHeight)
         };
+        // console.log("zoomfactor", svgMouseVBOffsetX, svgMouseVBOffsetY, zoomFactor, newVBPos);  
+
         svgRoot.viewbox(newVBPos.x, newVBPos.y, newWidth, newHeight);
     }
 }
