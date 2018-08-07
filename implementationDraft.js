@@ -155,54 +155,78 @@ SVG.on(document, 'DOMContentLoaded', function() {
 });
 
 
-function mousemoveHandler(event){
-    var svgXY = svgMouseCoord(event);
+function mouseScrollHandler(event){
+    if(mouseMoveRootNeedsReset) resetMouseMoveRoot(event);
     if(mouseScrollActive){
-        if(mouseOverFilter % 50 == 1) return;
-        var vb = svgRoot.viewbox();
-        if(mouseScrollRootNeedsReset){
-            mouseScrollRoot = {
-                // mouseX: svgXY.x,
-                // mouseY: svgXY.y,
-                mouseX: event.clientX,
-                mouseY: event.clientY,
-                vbX: vb.x,
-                vbY: vb.y,
-                vbWidth: vb.width,
-                vbHeight: vb.height
-            };
-            mouseScrollRootNeedsReset = false;
-            mouseOverFilter = 0;
-            console.log("scroll root set");
-        }
-
-        // var mouseDetla = {x: svgXY.x - mouseScrollRoot.mouseX, y: svgXY.y - mouseScrollRoot.mouseY};
-        var mouseDetla = {x: event.clientX - mouseScrollRoot.mouseX, y: event.clientY - mouseScrollRoot.mouseY};
+        var mouseDetla = getMouseDelta(event, mouseMoveRoot);
         
         //inverted scrolling
-        var scrollFactor = 3;
+        var scrollFactor = mouseMoveRoot.zoom;
         var newVBPos = {
-            x: bound(mouseScrollRoot.vbX - mouseDetla.x * scrollFactor, 0, pianoRollWidth - mouseScrollRoot.vbWidth),
-            y: bound(mouseScrollRoot.vbY - mouseDetla.y * scrollFactor, 0, pianoRollHeight - mouseScrollRoot.vbHeight)
+            x: bound(mouseMoveRoot.vbX - mouseDetla.x * scrollFactor, 0, pianoRollWidth - mouseMoveRoot.vbWidth),
+            y: bound(mouseMoveRoot.vbY - mouseDetla.y * scrollFactor, 0, pianoRollHeight - mouseMoveRoot.vbHeight)
         };
-        console.log("scrolling mouse", mouseDetla, newVBPos);
-        svgRoot.viewbox(newVBPos.x, newVBPos.y, vb.width, vb.height);
+        // console.log("scrolling mouse", mouseDetla, newVBPos);
+        svgRoot.viewbox(newVBPos.x, newVBPos.y, mouseMoveRoot.vbWidth, mouseMoveRoot.vbHeight);
     }
 }
 
 
+
+function mouseZoomHandler(event){
+    if(mouseMoveRootNeedsReset) resetMouseMoveRoot(event);
+    if(mouseZoomActive){
+        var mouseDetla = getMouseDelta(event, mouseMoveRoot);
+
+        var zoomFactor = mouseMoveRoot.zoom * (2**(mouseDetla.y/mouseMoveRoot.zoom / mouseMoveRoot.vbHeight));
+        console.log("zoomfactor", zoomFactor);
+        // var newVBPos = {
+        //     x: bound(mouseMoveRoot.vbX - mouseDetla.x * scrollFactor, 0, pianoRollWidth - mouseMoveRoot.vbWidth),
+        //     y: bound(mouseMoveRoot.vbY - mouseDetla.y * scrollFactor, 0, pianoRollHeight - mouseMoveRoot.vbHeight)
+        // };
+    }
+}
+
+// need to calculate mouse delta from screen coordinates rather than SVG coordinates because
+// the SVG view moves after every frame, thus changing the read mouse coordintates and creating
+// wild feedback.
+function getMouseDelta(event, root){
+    return {x: event.clientX - root.mouseX, y: event.clientY - root.mouseY};
+}
+
+function resetMouseMoveRoot(event){
+    var vb = svgRoot.viewbox();
+    var svgXY = svgMouseCoord(event);
+    mouseMoveRoot = {
+        mouseX: event.clientX,
+        mouseY: event.clientY,
+        svgX: svgXY.x,
+        svgY: svgXY.y,
+        vbX: vb.x,
+        vbY: vb.y,
+        vbWidth: vb.width,
+        vbHeight: vb.height,
+        zoom: vb.zoom
+    };
+    mouseMoveRootNeedsReset = false;
+}
+
 var mouseScrollActive = false;
-var mouseScrollRootNeedsReset = true;
-var mouseScrollRoot = {x: -1, y: -1};
-var mouseOverFilter = 0;
+var mouseZoomActive = false;
+var mouseMoveRootNeedsReset = true;
+var mouseMoveRoot = {x: -1, y: -1};
 
 function keydownHandler(event){
-    mouseScrollRootNeedsReset = true;
-    if(event.ctrlKey){
+    if(event.ctrlKey && !event.altKey){
+        mouseMoveRootNeedsReset = true;
         mouseScrollActive = true;
-        $('#drawing').mousemove(mousemoveHandler);
+        $('#drawing').mousemove(mouseScrollHandler);
     }
-    console.log("scrolling", mouseScrollActive);
+    if(event.altKey && !event.ctrlKey){
+        mouseMoveRootNeedsReset = true;
+        mouseZoomActive = true;
+        $('#drawing').mousemove(mouseZoomHandler);
+    }
 }
 
 function keyupHandler(event){
@@ -210,7 +234,10 @@ function keyupHandler(event){
         mouseScrollActive = false;
         $('#drawing').off('mousemove');
     }
-    console.log("scrolling", mouseScrollActive);
+    if(!event.altKey && mouseZoomActive) {
+        mouseZoomActive = false;
+        $('#drawing').off('mousemove');
+    }
 }
 
 //function that snapes note svg elements into place
