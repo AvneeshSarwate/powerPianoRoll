@@ -76,7 +76,7 @@ var thinLineWidth = 1;
 var viewportHeight = 720;
 var viewportWidth = 1280;
 var maxZoom;
-
+var noteCount = 0;
 // Create an SVGPoint for future math
 var refPt; 
 
@@ -126,24 +126,11 @@ SVG.on(document, 'DOMContentLoaded', function() {
     drawBackground();
 
     // attach the interaction handlers for various gestures - currently just mouse-multi select
-    // of notes, will later also attach handlers for ableton "draw mode" style interaction
+    // of notes, will later also attach handlers for single-note drawing and ableton "draw mode" style interaction
     attachMouseModifierHandlers(backgroundElements, svgRoot);
 
-    //set up the manipulatable elements (which will later be the notes)
-    l1 = svgRoot.rect(quarterNoteWidth, noteHeight).move(0, 100).fill(noteColor);
-    l2 = svgRoot.rect(quarterNoteWidth, noteHeight).move(0, 300).fill(noteColor);
-
-    // Every new note created will have a newly generated noteId. This
-    // is a quick setup to show what the note management could possibly look like.
-    notes = {0: {elem: l1, info:{}}, 1: {elem: l2, info:{}}};
-    l1.noteId = 0;
-    l2.noteId = 1;
-    Object.keys(notes).forEach(function(key){ //adding snap-to-grid
-        var noteElem = notes[key].elem;
-        noteElem.draggable().selectize({rotationPoint: false, points:["r", "l"]}).resize()
-            .on('dragend', function(event){ snapPositionToGrid(this, xSnap, ySnap)});
-            //todo - update/broadcast underlying note info, for both dragend and resizedone
-    });
+    addNote(120, 0, 1);
+    addNote(115, 0, 1);
 
 
     /* the onscreen view area (the root SVG element) is only 300x300, but we have drawn shapes 
@@ -158,6 +145,22 @@ SVG.on(document, 'DOMContentLoaded', function() {
     $('#drawing').keyup(keyupHandler);
 });
 
+
+//duration is number of quarter notes, pitch is 0-indexed MIDI
+function addNote(pitch, position, duration){
+    var rect = svgRoot.rect(duration*quarterNoteWidth, noteHeight).move(position*quarterNoteWidth, (127-pitch)*noteHeight).fill(noteColor);;
+    rect.noteId = noteCount;
+    rect.draggable().selectize({rotationPoint: false, points:["r", "l"]}).resize().on('dragend', 
+        function(event){
+            snapPositionToGrid(this, xSnap, ySnap);
+            //todo - update/broadcast underlying note info, for both dragend and resizedone
+        });
+    notes[noteCount] = {
+        elem: rect, 
+        info: {pitch, position, duration}
+    }
+    noteCount++;
+}
 
 function mouseScrollHandler(event){
     if(mouseMoveRootNeedsReset) resetMouseMoveRoot(event);
