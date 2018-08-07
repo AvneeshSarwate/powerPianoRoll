@@ -73,6 +73,16 @@ var selectedNoteColor = '#2ee'
 var thickLineWidth = 1.8;
 var thinLineWidth = 1;
 
+// Create an SVGPoint for future math
+var refPt; 
+
+// Get point in global SVG space from mousemove event
+function svgMouseCoord(evt){
+  refPt.x = evt.clientX; 
+  refPt.y = evt.clientY;
+  return refPt.matrixTransform(svgRoot.node.getScreenCTM().inverse());
+}
+
 function drawBackground() {
     var pianoRollHeight = noteHeight * NUM_MIDI_NOTES;
     var pulsesPerMeasure = timeSignature * 4;
@@ -82,6 +92,7 @@ function drawBackground() {
     xSnap = vertLineSpace;
     var measureWidth = quarterNoteWidth*pulsesPerMeasure;
     svgRoot = SVG('drawing').attr('id', 'pianoRollSVG').size(1280, 720);
+    refPt = svgRoot.node.createSVGPoint();
 
     backgroundElements = new Set();
     for(var i = 0; i < numMeasures; i++){
@@ -133,16 +144,45 @@ SVG.on(document, 'DOMContentLoaded', function() {
      */
     svgRoot.viewbox(0, 0, 1280, 720);
 
+    // setMouseMovementHandlers(svgRoot);
+
     $('#drawing').keydown(keydownHandler);
     $('#drawing').keyup(keyupHandler);
 });
 
+
+function mousemoveHandler(event){
+    var svgXY = svgMouseCoord(event);
+    if(mouseScrollActive){
+        if(mouseDeltaRootNeedsReset){
+            mouseDeltaRoot = svgXY;
+            mouseDeltaRootNeedsReset = false;
+        }
+        // console.log("scrolling mouse", svgMouseCoord(event));
+        console.log("scrolling mouse", svgXY.x - mouseDeltaRoot.x, svgXY.y - mouseDeltaRoot.y);
+    }
+}
+
+
+var mouseScrollActive = false;
+var mouseDeltaRootNeedsReset = true;
+var mouseDeltaRoot = {x: -1, y: -1};
+
 function keydownHandler(event){
-    console.log(event);
+    mouseDeltaRootNeedsReset = true;
+    if(event.ctrlKey){
+        mouseScrollActive = true;
+        $('#drawing').mousemove(mousemoveHandler);
+    }
+    console.log("scrolling", mouseScrollActive);
 }
 
 function keyupHandler(event){
-    console.log(event);
+    if(!event.ctrlKey && mouseScrollActive) {
+        mouseScrollActive = false;
+        $('#drawing').off('mousemove');
+    }
+    console.log("scrolling", mouseScrollActive);
 }
 
 //function that snapes note svg elements into place
