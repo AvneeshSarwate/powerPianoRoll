@@ -161,7 +161,7 @@ function mouseScrollHandler(event){
         var mouseDetla = getMouseDelta(event, mouseMoveRoot);
         
         //inverted scrolling
-        var scrollFactor = mouseMoveRoot.zoom;
+        var scrollFactor = 1/mouseMoveRoot.zoom;
         var newVBPos = {
             x: bound(mouseMoveRoot.vbX - mouseDetla.x * scrollFactor, 0, pianoRollWidth - mouseMoveRoot.vbWidth),
             y: bound(mouseMoveRoot.vbY - mouseDetla.y * scrollFactor, 0, pianoRollHeight - mouseMoveRoot.vbHeight)
@@ -178,12 +178,18 @@ function mouseZoomHandler(event){
     if(mouseZoomActive){
         var mouseDetla = getMouseDelta(event, mouseMoveRoot);
 
-        var zoomFactor = mouseMoveRoot.zoom * (2**(mouseDetla.y/mouseMoveRoot.zoom / mouseMoveRoot.vbHeight));
+        var zoomChange = (4**(mouseDetla.y/mouseMoveRoot.zoom / mouseMoveRoot.vbHeight));
+        var zoomFactor = mouseMoveRoot.zoom * zoomChange;
         console.log("zoomfactor", zoomFactor);
-        // var newVBPos = {
-        //     x: bound(mouseMoveRoot.vbX - mouseDetla.x * scrollFactor, 0, pianoRollWidth - mouseMoveRoot.vbWidth),
-        //     y: bound(mouseMoveRoot.vbY - mouseDetla.y * scrollFactor, 0, pianoRollHeight - mouseMoveRoot.vbHeight)
-        // };
+        var svgMouseVBOffsetX = mouseMoveRoot.svgX - mouseMoveRoot.vbX;
+        var svgMouseVBOffsetY = mouseMoveRoot.svgY - mouseMoveRoot.vbY;
+        var newWidth = mouseMoveRoot.vbWidth/zoomChange;
+        var newHeight = mouseMoveRoot.vbHeight/zoomChange;
+        var newVBPos = {
+            x: bound(mouseMoveRoot.svgX - svgMouseVBOffsetX/zoomChange, 0, newWidth),
+            y: bound(mouseMoveRoot.svgY - svgMouseVBOffsetY/zoomChange, 0, newHeight)
+        };
+        svgRoot.viewbox(newVBPos.x, newVBPos.y, newWidth, newHeight);
     }
 }
 
