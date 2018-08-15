@@ -21,6 +21,7 @@ How note-state <-> note-svg-elements is handled is still TBD.
     - done, but design choices necessary 
 - X figure out good UI for viewbox resizing/position control and scroll (panzoom plugin if necessary?)
     - done, but more polished design choices necessary 
+    - could implement 2 finger scroll - https://developer.mozilla.org/en-US/docs/Web/API/Touch_events/Multi-touch_interaction
 - implement double-click to add note interaction (should be straightforwards, svg-wise)
 - figure out cursor animation and viewbox movement for a playing piano roll
 - decide how to do ableton "draw mode" style interaction (shouldn't require any new funky 
@@ -118,6 +119,16 @@ function drawBackground() {
         var line = svgRoot.line(0, i*noteHeight, pianoRollWidth, i*noteHeight).stroke({width: thinLineWidth});
         backgroundElements.add(line);
     }
+    backgroundElements.forEach(elem => {
+        elem.on('dblclick', function(event){
+            var svgXY;
+            svgXY = svgMouseCoord(event);
+            // svgXY = {x: event.clientX, y: event.clientY};
+            var pitchPos = svgXYtoQuantPitchPos(svgXY.x, svgXY.y);
+            console.log("dblclick", svgXY.x, svgXY.y, pitchPos, event);
+            addNote(pitchPos.pitch, pitchPos.position, 4/noteSubDivision);
+        });
+    });
 }
 
 
@@ -129,8 +140,8 @@ SVG.on(document, 'DOMContentLoaded', function() {
     // of notes, will later also attach handlers for single-note drawing and ableton "draw mode" style interaction
     attachMouseModifierHandlers(backgroundElements, svgRoot);
 
-    addNote(120, 0, 1);
-    addNote(115, 0, 1);
+    addNote(20, 0, 1);
+    addNote(15, 0, 1);
 
 
     /* the onscreen view area (the root SVG element) is only 300x300, but we have drawn shapes 
@@ -157,6 +168,7 @@ function addNote(pitch, position, duration){
         info: {pitch, position, duration}
     }
     noteCount++;
+    return rect.noteId;
 }
 
 function attachIndividualInfoUpdateHandlers(noteElem){
@@ -169,9 +181,17 @@ function attachIndividualInfoUpdateHandlers(noteElem){
         });
 }
 
+function svgYtoPitch(yVal) {return 127 - yVal/noteHeight;}
+function svgXtoPosition(xVal) {return xVal/quarterNoteWidth}
+function svgXYtoQuantPitchPos(xVal, yVal) {
+    var notesPerQuarterNote = noteSubDivision/4;
+    var rawPosition = xVal / quarterNoteWidth;
+    return {pitch: 127 - Math.floor(yVal/noteHeight), position: Math.floor(rawPosition * notesPerQuarterNote)/notesPerQuarterNote};
+}
+
 function updateNoteInfo(note){
-    var pitch = 127 - note.elem.y()/noteHeight;
-    var position = note.elem.x()/quarterNoteWidth;
+    var pitch = svgYtoPitch(note.elem.y());
+    var position = svgXtoPosition(note.elem.x());
     var duration = note.elem.width()/quarterNoteWidth;
     note.info = {pitch, position, duration};
 }
@@ -361,7 +381,6 @@ function setMultiSelectListenersOnElement(noteElement){
 
 // stop bouncing position/size changes to other elements
 function removeMultiSelectListeners(selectedElements_){
-    console.log("remove multi", selectedElements_);
     selectedElements_.forEach(function(elem){
         elem.off('beforedrag');
         elem.off('dragmove');
@@ -437,7 +456,7 @@ function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
 
     backgroundElements_.forEach(function(elem){
         elem.on('mousedown', function(event){
-            // console.log("down", event);
+            console.log("down", event);
 
             //clear previous mouse multi-select gesture state
             removeMultiSelectListeners(selectedElements);
