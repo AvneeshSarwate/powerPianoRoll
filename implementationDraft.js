@@ -189,11 +189,11 @@ function attachIndividualNoteUpdateHandlers(noteElem, initialAttachment){
     if(initialAttachment) {
         noteElem.on('click', function(event){
             //jump
-            if(!this.dragendPreClickFlag) {
+            if(this.noMotionOnDrag) {
                 console.log("single note click")
                 clearNoteSelection();
+                selectNote(this);
             }
-            this.dragendPreClickFlag = false;
         });
     }
 }
@@ -336,9 +336,9 @@ function attachMultiSelectHandlersOnElement(noteElement){
      * the other selected elements
      */
 
-    noteElement.draggable().on('dragstart', function(event){
-        console.log("dragstart", event.timeStamp, event);
-    }); 
+    // noteElement.draggable().on('dragstart', function(event){
+    //     console.log("dragstart", event.timeStamp, event);
+    // }); 
 
     noteElement.draggable().on('dragmove', function(event){
         var xMove = this.x() - noteModStartReference[this.noteId].x;
@@ -350,7 +350,7 @@ function attachMultiSelectHandlersOnElement(noteElement){
                 notes[id].elem.y(noteModStartReference[id].y + yMove);
             }
         });
-        console.log("dragmove", event);
+        // console.log("dragmove", event);
     });
 
     /* remove the original dragend function which only snaps the target
@@ -361,9 +361,14 @@ function attachMultiSelectHandlersOnElement(noteElement){
     /* have a dragend function that snaps ALL selected elements to the grid
      */
     noteElement.draggable().on('dragend', function(event){
-        //to distinguish between click and drag - check here if element/mouse has moved compared to reference 
-        //OR compare event timestamp
-        console.log("dragend", event, noteModStartReference);
+        //TODO - to distinguish between click and drag - check here if element/mouse has moved compared to reference (is there a better way?)
+        
+        console.log("dragend", event, noteModStartReference, this.x(), this.y());
+        this.noMotionOnDrag = false;
+        if(Math.abs(this.x() - noteModStartReference[this.noteId].x) < 3 && Math.abs(this.y() - noteModStartReference[this.noteId].y) < 3){
+            console.log("not a proper drag");
+            this.noMotionOnDrag = true; //used to prevent click events from triggering after drag
+        }
 
         selectedElements.forEach(function(elem){
             snapPositionToGrid(elem, xSnap, ySnap); 
@@ -371,7 +376,6 @@ function attachMultiSelectHandlersOnElement(noteElement){
         //refresh the startReference so the next multi-select-transform works right
         refreshNoteModStartReference(selectedNoteIds);
         selectedNoteIds.forEach(id => updateNoteInfo(notes[id]));
-        this.dragendPreClickFlag = true; //prevent click events from triggering after drag
     });
 
     /* Performs the same resizing done on the clicked element to 
@@ -409,10 +413,10 @@ function removeMultiSelectHandlers(selectedElements_){
 
 function removeMultiSelectHandlersOnElement(elem){
     elem.off('beforedrag');
+    elem.off('dragstart');
     elem.off('dragmove');
     elem.off('dragend');
     elem.off('resizing');
-    elem.on('dragend', function(event){snapPositionToGrid(this, xSnap, ySnap)})
     attachIndividualNoteUpdateHandlers(elem, false);
 }
 
