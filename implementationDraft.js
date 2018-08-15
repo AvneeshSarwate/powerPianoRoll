@@ -19,8 +19,8 @@ How note-state <-> note-svg-elements is handled is still TBD.
 - X - multiselection and ableton style note length resizing
 - X - multiselected resizing + snap to grid
     - done, but design choices necessary 
-- figure out good UI for viewbox resizing/position control and scroll (panzoom plugin if necessary?)
-    - figure out how to map mouse coordinates to SVG coordinates
+- X figure out good UI for viewbox resizing/position control and scroll (panzoom plugin if necessary?)
+    - done, but more polished design choices necessary 
 - implement double-click to add note interaction (should be straightforwards, svg-wise)
 - figure out cursor animation and viewbox movement for a playing piano roll
 - decide how to do ableton "draw mode" style interaction (shouldn't require any new funky 
@@ -150,16 +150,30 @@ SVG.on(document, 'DOMContentLoaded', function() {
 function addNote(pitch, position, duration){
     var rect = svgRoot.rect(duration*quarterNoteWidth, noteHeight).move(position*quarterNoteWidth, (127-pitch)*noteHeight).fill(noteColor);;
     rect.noteId = noteCount;
-    rect.draggable().selectize({rotationPoint: false, points:["r", "l"]}).resize().on('dragend', 
-        function(event){
-            snapPositionToGrid(this, xSnap, ySnap);
-            //todo - update/broadcast underlying note info, for both dragend and resizedone
-        });
+    rect.draggable().selectize({rotationPoint: false, points:["r", "l"]}).resize();
+    attachIndividualInfoUpdateHandlers(rect);
     notes[noteCount] = {
         elem: rect, 
         info: {pitch, position, duration}
     }
     noteCount++;
+}
+
+function attachIndividualInfoUpdateHandlers(noteElem){
+    noteElem.on('dragend', function(event){
+            snapPositionToGrid(this, xSnap, ySnap);
+            updateNoteInfo(notes[this.noteId]);
+        })
+        .on('resizedone', function(event){
+            updateNoteInfo(notes[this.noteId]);
+        });
+}
+
+function updateNoteInfo(note){
+    var pitch = 127 - note.elem.y()/noteHeight;
+    var position = note.elem.x()/quarterNoteWidth;
+    var duration = note.elem.width()/quarterNoteWidth;
+    note.info = {pitch, position, duration};
 }
 
 function mouseScrollHandler(event){
@@ -299,7 +313,8 @@ function setMultiSelectListenersOnElement(noteElement){
     /* remove the original dragend function which only snaps the target
      * element to the grid
      */
-    noteElement.off('dragend'); 
+    noteElement.off('dragend');
+    noteElement.off('resizedone'); 
 
     /* have a dragend function that snaps ALL selected elements to the grid
      */
@@ -311,6 +326,7 @@ function setMultiSelectListenersOnElement(noteElement){
         refreshNoteModStartReference(selectedNoteIds);
 
         //todo - update/broadcast underlying note info
+        selectedNoteIds.forEach(id => updateNoteInfo(notes[id]));
     });
 
     /* Performs the same resizing done on the clicked element to 
@@ -339,6 +355,7 @@ function setMultiSelectListenersOnElement(noteElement){
     noteElement.on('resizedone', function(event){
         refreshNoteModStartReference(selectedNoteIds);
         //todo - update/broadcast underlying note info
+        selectedNoteIds.forEach(id => updateNoteInfo(notes[id]));
     })
 }
 
@@ -352,6 +369,7 @@ function removeMultiSelectListeners(selectedElements_){
         elem.off('resizing');
         elem.on('dragend', function(event){snapPositionToGrid(this, xSnap, ySnap)})
         //todo - re-attach individual handler to update/broadcast underlying note info, for both dragend and resizedone
+        attachIndividualInfoUpdateHandlers(elem);
     });
 }
 
