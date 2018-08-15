@@ -187,10 +187,14 @@ function attachIndividualNoteUpdateHandlers(noteElem, initialAttachment){
             updateNoteInfo(notes[this.noteId]);
         })
     if(initialAttachment) {
-        // noteElem.on('click', function(event){
-        //     //jump
-        //     clearNoteSelection();
-        // });
+        noteElem.on('click', function(event){
+            //jump
+            if(!this.dragendPreClickFlag) {
+                console.log("single note click")
+                clearNoteSelection();
+            }
+            this.dragendPreClickFlag = false;
+        });
     }
 }
 
@@ -220,7 +224,6 @@ function mouseScrollHandler(event){
             x: bound(mouseMoveRoot.vbX - mouseDetla.x * scrollFactor, 0, pianoRollWidth - mouseMoveRoot.vbWidth),
             y: bound(mouseMoveRoot.vbY - mouseDetla.y * scrollFactor, 0, pianoRollHeight - mouseMoveRoot.vbHeight)
         };
-        // console.log("scrolling mouse", mouseDetla, newVBPos);
         svgRoot.viewbox(newVBPos.x, newVBPos.y, mouseMoveRoot.vbWidth, mouseMoveRoot.vbHeight);
     }
 }
@@ -244,7 +247,6 @@ function mouseZoomHandler(event){
             x: bound(mouseMoveRoot.svgX - svgMouseVBOffsetX/zoomChange, 0, pianoRollWidth - newWidth),
             y: bound(mouseMoveRoot.svgY - svgMouseVBOffsetY/zoomChange, 0, pianoRollHeight - newHeight)
         };
-        // console.log("zoomfactor", svgMouseVBOffsetX, svgMouseVBOffsetY, zoomFactor, newVBPos);  
 
         svgRoot.viewbox(newVBPos.x, newVBPos.y, newWidth, newHeight);
     }
@@ -333,6 +335,11 @@ function attachMultiSelectHandlersOnElement(noteElement){
     /* Performs the same drag deviation done on the clicked element to 
      * the other selected elements
      */
+
+    noteElement.draggable().on('dragstart', function(event){
+        console.log("dragstart", event.timeStamp, event);
+    }); 
+
     noteElement.draggable().on('dragmove', function(event){
         var xMove = this.x() - noteModStartReference[this.noteId].x;
         var yMove = this.y() - noteModStartReference[this.noteId].y;
@@ -343,6 +350,7 @@ function attachMultiSelectHandlersOnElement(noteElement){
                 notes[id].elem.y(noteModStartReference[id].y + yMove);
             }
         });
+        console.log("dragmove", event);
     });
 
     /* remove the original dragend function which only snaps the target
@@ -353,12 +361,17 @@ function attachMultiSelectHandlersOnElement(noteElement){
     /* have a dragend function that snaps ALL selected elements to the grid
      */
     noteElement.draggable().on('dragend', function(event){
+        //to distinguish between click and drag - check here if element/mouse has moved compared to reference 
+        //OR compare event timestamp
+        console.log("dragend", event, noteModStartReference);
+
         selectedElements.forEach(function(elem){
             snapPositionToGrid(elem, xSnap, ySnap); 
         });
         //refresh the startReference so the next multi-select-transform works right
         refreshNoteModStartReference(selectedNoteIds);
         selectedNoteIds.forEach(id => updateNoteInfo(notes[id]));
+        this.dragendPreClickFlag = true; //prevent click events from triggering after drag
     });
 
     /* Performs the same resizing done on the clicked element to 
@@ -438,7 +451,6 @@ function boxIntersect(noteBox, selectBox){
     //if noteBox is fully below or above rect box
     //comparison operators are wierd because image coordinates used e.g (0,0) at "upper left" of positive quadrant
     if(noteBox.tl.y > selectBox.br.y || noteBox.br.y < selectBox.tl.y) returnVal = false;
-    // console.log("intersect", noteBox, selectBox, returnVal);
     return returnVal;
 }
 
@@ -455,8 +467,6 @@ function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
     // need to listen on window so select gesture ends even if released outside the 
     // bounds of the root svg element or browser
     window.addEventListener('mouseup', function(event){
-        // console.log("window up", event);
-
         //end a multi-select drag gesture
         if(selectRect) {
             if(selectedElements.size > 0 ){
@@ -472,8 +482,6 @@ function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
 
     backgroundElements_.forEach(function(elem){
         elem.on('mousedown', function(event){
-            console.log("down", event);
-
             //clear previous mouse multi-select gesture state
             clearNoteSelection();
 
@@ -489,7 +497,6 @@ function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
                     // var intersecting = svgParentObj.node.checkIntersection(noteElem.node, selectRect.node.getBBox());
                     var intersecting = selectRectIntersection(selectRect, noteElem);
                     if(intersecting) {
-                        // console.log([noteElem.y()], selectRect.node.getBBox())
                         selectNote(noteElem);                        
                     }
                     else {
