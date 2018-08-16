@@ -22,7 +22,11 @@ How note-state <-> note-svg-elements is handled is still TBD.
 - X figure out good UI for viewbox resizing/position control and scroll (panzoom plugin if necessary?)
     - done, but more polished design choices necessary 
     - could implement 2 finger scroll - https://developer.mozilla.org/en-US/docs/Web/API/Touch_events/Multi-touch_interaction
-- implement double-click to add note interaction (should be straightforwards, svg-wise)
+- X implement double-click to add note interaction (should be straightforwards, svg-wise)
+- implement delete/undo of notes
+- implement cursor and cut/copy/paste
+- implement moving highlighted notes by arrow click 
+- figure out floating note names on side and time-values on top 
 - figure out cursor animation and viewbox movement for a playing piano roll
 - decide how to do ableton "draw mode" style interaction (shouldn't require any new funky 
  SVG behavior, but will likely be tricky wrt UI-state management)
@@ -133,7 +137,7 @@ function drawBackground() {
             var svgXY;
             svgXY = svgMouseCoord(event);
             // svgXY = {x: event.clientX, y: event.clientY};
-            var pitchPos = svgXYtoQuantPitchPos(svgXY.x, svgXY.y);
+            var pitchPos = svgXYtoPitchPosQuant(svgXY.x, svgXY.y);
             addNote(pitchPos.pitch, pitchPos.position, 4/noteSubDivision);
         });
     });
@@ -197,7 +201,6 @@ function attachIndividualNoteUpdateHandlers(noteElem, initialAttachment){
         noteElem.on('click', function(event){
             //jump
             if(!this.motionOnDrag) {
-                console.log("single note click")
                 if(!shiftKeyDown) clearNoteSelection();
                 selectNote(this);
             }
@@ -208,7 +211,10 @@ function attachIndividualNoteUpdateHandlers(noteElem, initialAttachment){
 
 function svgYtoPitch(yVal) {return 127 - yVal/noteHeight;}
 function svgXtoPosition(xVal) {return xVal/quarterNoteWidth}
-function svgXYtoQuantPitchPos(xVal, yVal) {
+function svgXYtoPitchPos(xVal, yVal){
+    return {pitch: 127 - yVal/noteHeight, position: xVal/quarterNoteWidth};
+}
+function svgXYtoPitchPosQuant(xVal, yVal) {
     var notesPerQuarterNote = noteSubDivision/4;
     var rawPosition = xVal / quarterNoteWidth;
     return {pitch: 127 - Math.floor(yVal/noteHeight), position: Math.floor(rawPosition * notesPerQuarterNote)/notesPerQuarterNote};
@@ -219,6 +225,12 @@ function updateNoteInfo(note){
     var position = svgXtoPosition(note.elem.x());
     var duration = note.elem.width()/quarterNoteWidth;
     note.info = {pitch, position, duration};
+}
+
+function updateNoteElement(note){
+    note.elem.x(note.info.position * quarterNoteWidth);
+    note.elem.y((127-note.info.pitch)*noteHeight);
+    note.elem.width(note.info.duration*quarterNoteWidth);
 }
 
 function mouseScrollHandler(event){
@@ -342,9 +354,7 @@ function attachMultiSelectHandlersOnElement(noteElement){
      * the other selected elements
      */
 
-    console.log("dragstart attach", noteElement.noteId);
     noteElement.on('dragstart', function(event){
-        console.log('dragstart', this.noteId);
         selectedNoteIds = Array.from(selectedElements).map(elem => elem.noteId);
         refreshNoteModStartReference(selectedNoteIds);
         dragCount = 0;
@@ -372,10 +382,8 @@ function attachMultiSelectHandlersOnElement(noteElement){
     noteElement.on('dragend', function(event){
         //cleanup - to distinguish between click and drag - check here if element/mouse has moved compared to reference (is there a better way?)
         
-        console.log("dragend", event, noteModStartReference, this.x(), this.y());
         this.motionOnDrag = false;
         if(Math.abs(this.x() - noteModStartReference[this.noteId].x) > 3 || Math.abs(this.y() - noteModStartReference[this.noteId].y) > 3){
-            console.log("proper drag");
             this.motionOnDrag = true; //used to prevent click events from triggering after drag
         }
 
@@ -417,7 +425,6 @@ function attachMultiSelectHandlersOnElement(noteElement){
 
 // stop bouncing position/size changes to other elements
 function removeMultiSelectHandlersOnElement(elem){
-    console.log("dragstart remove", elem.noteId);
     elem.off('dragstart');
     elem.off('dragmove');
     elem.off('dragend');
