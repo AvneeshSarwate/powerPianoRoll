@@ -27,6 +27,12 @@ How note-state <-> note-svg-elements is handled is still TBD.
 - decide how to do ableton "draw mode" style interaction (shouldn't require any new funky 
  SVG behavior, but will likely be tricky wrt UI-state management)
 
+
+ comment tags
+ cleanup - stuff that works but needs cleaning
+ inProgress - stuff that's not totally built yet
+ future - guide notes for longer term extensible implementation ideas
+
 */
 
 //public vars to allow live-codable testing in the console
@@ -46,6 +52,8 @@ var notes = {};
 
 //elements selected by a mouse-region highlight
 var selectedElements = new Set();
+var selectedNoteIds = []; //IDs of selected notes saved separtely to speed up multi drag/resize performance
+
 var selectRect; //the variable holding the mouse-region highlight svg rectabgle 
 
 //svg elements in the pianoRoll background
@@ -126,7 +134,6 @@ function drawBackground() {
             svgXY = svgMouseCoord(event);
             // svgXY = {x: event.clientX, y: event.clientY};
             var pitchPos = svgXYtoQuantPitchPos(svgXY.x, svgXY.y);
-            console.log("dblclick", svgXY.x, svgXY.y, pitchPos, event);
             addNote(pitchPos.pitch, pitchPos.position, 4/noteSubDivision);
         });
     });
@@ -189,11 +196,12 @@ function attachIndividualNoteUpdateHandlers(noteElem, initialAttachment){
     if(initialAttachment) {
         noteElem.on('click', function(event){
             //jump
-            if(this.noMotionOnDrag) {
+            if(!this.motionOnDrag) {
                 console.log("single note click")
-                clearNoteSelection();
+                if(!shiftKeyDown) clearNoteSelection();
                 selectNote(this);
             }
+            this.motionOnDrag = false; //cleanup - clean up placement of this/encapsulating it in some stateful function
         });
     }
 }
@@ -326,21 +334,23 @@ function refreshNoteModStartReference(noteIds){
     });
 }
 
+var dragCount = 0;
 // sets event handlers on each note element for position/resize multi-select changes
 function attachMultiSelectHandlersOnElement(noteElement){
-    var selectedNoteIds = Array.from(selectedElements).map(elem => elem.noteId);
-
-     refreshNoteModStartReference(selectedNoteIds);
-
+    
     /* Performs the same drag deviation done on the clicked element to 
      * the other selected elements
      */
 
-    // noteElement.draggable().on('dragstart', function(event){
-    //     console.log("dragstart", event.timeStamp, event);
-    // }); 
+    console.log("dragstart attach", noteElement.noteId);
+    noteElement.on('dragstart', function(event){
+        console.log('dragstart', this.noteId);
+        selectedNoteIds = Array.from(selectedElements).map(elem => elem.noteId);
+        refreshNoteModStartReference(selectedNoteIds);
+        dragCount = 0;
+    }); 
 
-    noteElement.draggable().on('dragmove', function(event){
+    noteElement.on('dragmove', function(event){
         var xMove = this.x() - noteModStartReference[this.noteId].x;
         var yMove = this.y() - noteModStartReference[this.noteId].y;
         var thisId = this.noteId;
@@ -350,7 +360,6 @@ function attachMultiSelectHandlersOnElement(noteElement){
                 notes[id].elem.y(noteModStartReference[id].y + yMove);
             }
         });
-        // console.log("dragmove", event);
     });
 
     /* remove the original dragend function which only snaps the target
@@ -360,14 +369,14 @@ function attachMultiSelectHandlersOnElement(noteElement){
 
     /* have a dragend function that snaps ALL selected elements to the grid
      */
-    noteElement.draggable().on('dragend', function(event){
-        //TODO - to distinguish between click and drag - check here if element/mouse has moved compared to reference (is there a better way?)
+    noteElement.on('dragend', function(event){
+        //cleanup - to distinguish between click and drag - check here if element/mouse has moved compared to reference (is there a better way?)
         
         console.log("dragend", event, noteModStartReference, this.x(), this.y());
-        this.noMotionOnDrag = false;
-        if(Math.abs(this.x() - noteModStartReference[this.noteId].x) < 3 && Math.abs(this.y() - noteModStartReference[this.noteId].y) < 3){
-            console.log("not a proper drag");
-            this.noMotionOnDrag = true; //used to prevent click events from triggering after drag
+        this.motionOnDrag = false;
+        if(Math.abs(this.x() - noteModStartReference[this.noteId].x) > 3 || Math.abs(this.y() - noteModStartReference[this.noteId].y) > 3){
+            console.log("proper drag");
+            this.motionOnDrag = true; //used to prevent click events from triggering after drag
         }
 
         selectedElements.forEach(function(elem){
@@ -407,12 +416,8 @@ function attachMultiSelectHandlersOnElement(noteElement){
 }
 
 // stop bouncing position/size changes to other elements
-function removeMultiSelectHandlers(selectedElements_){
-    selectedElements_.forEach(removeMultiSelectHandlersOnElement);
-}
-
 function removeMultiSelectHandlersOnElement(elem){
-    elem.off('beforedrag');
+    console.log("dragstart remove", elem.noteId);
     elem.off('dragstart');
     elem.off('dragmove');
     elem.off('dragend');
@@ -422,13 +427,19 @@ function removeMultiSelectHandlersOnElement(elem){
 
 
 function selectNote(noteElem){
-    selectedElements.add(noteElem);
-    noteElem.fill(selectedNoteColor);
+    if(!selectedElements.has(noteElem)) {
+        attachMultiSelectHandlersOnElement(noteElem);
+        selectedElements.add(noteElem);
+        noteElem.fill(selectedNoteColor);
+    }
 }
 
 function deselectNote(noteElem){
-    selectedElements.delete(noteElem);
-    noteElem.fill(noteColor);
+    if(selectedElements.has(noteElem)) {
+        removeMultiSelectHandlersOnElement(noteElem);
+        selectedElements.delete(noteElem);
+        noteElem.fill(noteColor);
+    }
 }
 
 // calculates if a note intersects with the mouse-multiselect rectangle
@@ -459,7 +470,6 @@ function boxIntersect(noteBox, selectBox){
 }
 
 function clearNoteSelection(){
-    removeMultiSelectHandlers(selectedElements);
     selectedElements.forEach(noteElem => deselectNote(noteElem));
 }
 
@@ -473,9 +483,6 @@ function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
     window.addEventListener('mouseup', function(event){
         //end a multi-select drag gesture
         if(selectRect) {
-            if(selectedElements.size > 0 ){
-                selectedElements.forEach(attachMultiSelectHandlersOnElement);
-            }
             selectRect.draw('stop', event);
             selectRect.remove();
             svgParentObj.off("mousemove");
