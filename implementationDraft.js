@@ -265,7 +265,11 @@ function attachIndividualNoteUpdateHandlers(noteElem, initialAttachment){
             snapPositionToGrid(this, xSnap, ySnap);
             updateNoteInfo(notes[this.noteId], false);
         })
+        .on('resizestart', function(event){
+            refreshNoteModStartReference([this.noteId]);
+        })
         .on('resizedone', function(event){
+            if(!checkIfNoteResizedSignificantly(this, 3)) return;
             updateNoteInfo(notes[this.noteId], false);
         })
     if(initialAttachment) {
@@ -488,6 +492,10 @@ function checkIfNoteMovedSignificantly(noteElement, thresh){
     return Math.abs(noteElement.x() - noteModStartReference[noteElement.noteId].x) > thresh || Math.abs(noteElement.y() - noteModStartReference[noteElement.noteId].y) > thresh;
 }
 
+function checkIfNoteResizedSignificantly(noteElement, thresh){
+    return Math.abs(noteElement.width() - noteModStartReference[noteElement.noteId].width) > thresh;
+}
+
 // sets event handlers on each note element for position/resize multi-select changes
 function attachMultiSelectHandlersOnElement(noteElement){
     
@@ -561,6 +569,8 @@ function attachMultiSelectHandlersOnElement(noteElement){
 
     //refresh the startReference so the next multi-select-transform works right
     noteElement.on('resizedone', function(event){
+        if(!checkIfNoteResizedSignificantly(this, 3)) return;
+
         refreshNoteModStartReference(selectedNoteIds);
         updateNoteInfoMultiple(selectedNoteIds.map(id => notes[id]));
     });
