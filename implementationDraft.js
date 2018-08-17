@@ -23,7 +23,8 @@ How note-state <-> note-svg-elements is handled is still TBD.
     - done, but more polished design choices necessary 
     - could implement 2 finger scroll - https://developer.mozilla.org/en-US/docs/Web/API/Touch_events/Multi-touch_interaction
 - X implement double-click to add note interaction (should be straightforwards, svg-wise)
-- implement delete/undo of notes
+- X implement delete
+- implement undo
 - implement cursor and cut/copy/paste
 - implement moving highlighted notes by arrow click 
 - figure out floating note names on side and time-values on top 
@@ -94,10 +95,10 @@ var refPt;
 var shiftKeyDown = false;
 
 
-var historyList = []; //list of states 
+var historyList = [[]]; //list of states. upon an edit, the end of historyList is always the current state 
+
 // How far away from end of array (e.g, how many redos available).
-// historyList.length - historyListIndex - 1 always points to where undo comes from
-// historyList.length - historyListIndex always points to where redo comes from
+// historyList.length - historyListIndex - 1 always points to the current state
 var historyListIndex = 0; 
 
 var pianoRollHeight;
@@ -228,18 +229,24 @@ function addNote(pitch, position, duration, isHistoryManipulation){
     noteCount++;
     if(!isHistoryManipulation){
         //inProgress - update history
+        snapshotNoteState();
     }
     return rect.noteId;
 }
 
-function deleteNotes(){
+function deleteElement(elem){
+    elem.selectize(false);
+    elem.remove();
+}
+
+function deleteNotes(elements){
     //for selected notes - delete svg elements, remove entries from "notes" objects
-    selectedElements.forEach(function(elem){
-        elem.selectize(false);
-        elem.remove();
+    elements.forEach(function(elem){
+        deleteElement(elem);
         delete notes[elem.noteId];
     });
     //inProgress - update history
+    snapshotNoteState();
 }
 
 function removeIndividualNoteUpdateHandlers(noteElem){
@@ -251,12 +258,10 @@ function removeIndividualNoteUpdateHandlers(noteElem){
 function attachIndividualNoteUpdateHandlers(noteElem, initialAttachment){
     noteElem.on('dragend', function(event){
             snapPositionToGrid(this, xSnap, ySnap);
-            updateNoteInfo(notes[this.noteId]);
-            //inProgress - update history
+            updateNoteInfo(notes[this.noteId], false);
         })
         .on('resizedone', function(event){
-            updateNoteInfo(notes[this.noteId]);
-            //inProgress - update history
+            updateNoteInfo(notes[this.noteId], false);
         })
     if(initialAttachment) {
         noteElem.on('click', function(event){
@@ -271,16 +276,18 @@ function attachIndividualNoteUpdateHandlers(noteElem, initialAttachment){
 }
 
 //update underlying note info from SVG element change
-function updateNoteInfo(note){
+function updateNoteInfo(note, calledFromBatchUpdate){
     var pitch = svgYtoPitch(note.elem.y());
     var position = svgXtoPosition(note.elem.x());
     var duration = note.elem.width()/quarterNoteWidth;
     note.info = {pitch, position, duration};
+    if(!calledFromBatchUpdate) snapshotNoteState();
 }
 
 function updateNoteInfoMultiple(notes){
-    notes.forEach(note => updateNoteInfo(note));
+    notes.forEach(note => updateNoteInfo(note, true));
     //inProgress - update history
+    snapshotNoteState();
 }
 
 //update note SVG element from underlying info change
@@ -393,8 +400,12 @@ function keydownHandler(event){
         $('#drawing').mousemove(mouseZoomHandler);
     }
     if(event.key == "Backspace"){
-        deleteNotes();
+        deleteNotes(selectedElements);
         event.stopPropagation();
+    }
+    if(event.key === "z" && event.metaKey){
+        if(shiftKeyDown) executeRedo();
+        else executeUndo();
     }
 }
 
@@ -415,28 +426,35 @@ function snapshotNoteState(){
     if(historyListIndex == 0){
         historyList.push(noteState);
     } else {
-        historyListIndex--;
-        historyList[historyList.length - historyListIndex - 1];
+        historyList = historyList.splice(0, historyList.length - historyListIndex);
+        historyList.push(noteState);
     }
 }
 
-function removeNoteElements(){
-    Object.values(notes).forEach(note => note.elem.remove());
-}
-
 function executeUndo() {
-    if(historyListIndex === historyList.length) return; //inProgress - check indexes
-    removeNoteElements();
-    notes = {};
-
+    if(historyList.length - historyListIndex - 2 < 0) return; //inProgress - check indexes
+    historyListIndex++;
+    console.log("undo", historyList.length - historyListIndex - 1);
+    restoreNoteState(historyList.length - historyListIndex - 1);
 }
 
 function executeRedo() {
     if(historyListIndex == 0) return; //inProgress - check indexes
-    removeNoteElements();
-    notes = {};
-
+    historyListIndex--;
+    console.log("redo", historyList.length - historyListIndex - 1);
+    restoreNoteState(historyList.length - historyListIndex - 1);
 }
+
+function restoreNoteState(histIndex){
+    Object.values(notes).forEach(note => deleteElement(note.elem));
+    notes = {};
+    var noteState = historyList[histIndex];
+    console.log("restoreNoteState", histIndex, noteState);
+    noteState.forEach(function(noteInfo){
+        addNote(noteInfo.pitch, noteInfo.position, noteInfo.duration, true);
+    });
+}
+
 
 //function that snapes note svg elements into place
 function snapPositionToGrid(elem, xSize, ySize){
@@ -531,7 +549,6 @@ function attachMultiSelectHandlersOnElement(noteElement){
     noteElement.on('resizedone', function(event){
         refreshNoteModStartReference(selectedNoteIds);
         updateNoteInfoMultiple(selectedNoteIds.map(id => notes[id]));
-        //inProgress - update history
     });
 }
 
