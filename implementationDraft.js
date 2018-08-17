@@ -39,8 +39,7 @@ How note-state <-> note-svg-elements is handled is still TBD.
 
 */
 
-//public vars to allow live-codable testing in the console
-var bound = (n, l, h) => Math.min(h, Math.max(l, n));
+
 
 var svgRoot; //the svg root element
 
@@ -94,15 +93,37 @@ var noteCount = 0;
 var refPt; 
 var shiftKeyDown = false;
 
-// Get point in global SVG space from mousemove event
-function svgMouseCoord(evt){
-  refPt.x = evt.clientX; 
-  refPt.y = evt.clientY;
-  return refPt.matrixTransform(svgRoot.node.getScreenCTM().inverse());
-}
+
+var historyList = []; //stack of states 
+var historyListIndex = 0; //how far away from end of array (e.g, how many redos available)
 
 var pianoRollHeight;
 var pianoRollWidth
+
+SVG.on(document, 'DOMContentLoaded', function() {
+
+    drawBackground();
+
+    // attach the interaction handlers for various gestures - currently just mouse-multi select
+    // of notes, will later also attach handlers for single-note drawing and ableton "draw mode" style interaction
+    attachMouseModifierHandlers(backgroundElements, svgRoot);
+
+    addNote(120, 0, 1);
+    addNote(115, 0, 1);
+
+
+    /* the onscreen view area (the root SVG element) is only 300x300, but we have drawn shapes 
+     * that are contained in a 400x400 box. the SVG viewbox feature lets you draw arbitraily  
+     * sized images and then view them at whatever scale you want in your view area
+     */
+    svgRoot.viewbox(0, 0, viewportWidth, viewportHeight);
+
+    // setMouseMovementHandlers(svgRoot);
+
+    $('#drawing').keydown(keydownHandler);
+    $('#drawing').keyup(keyupHandler);
+});
+
 
 function drawBackground() {
     pianoRollHeight = noteHeight * NUM_MIDI_NOTES;
@@ -144,29 +165,51 @@ function drawBackground() {
 }
 
 
-SVG.on(document, 'DOMContentLoaded', function() {
+// attaches the appropriate handlers to the mouse event allowing to to 
+// start a multi-select gesture (and later draw mode)
+function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
+    var svgElem = svgParentObj.node;
+ 
+    // need to listen on window so select gesture ends even if released outside the 
+    // bounds of the root svg element or browser
+    window.addEventListener('mouseup', function(event){
+        //end a multi-select drag gesture
+        if(selectRect) {
+            selectRect.draw('stop', event);
+            selectRect.remove();
+            svgParentObj.off("mousemove");
+            selectRect = null;
+        }
+    });
 
-    drawBackground();
 
-    // attach the interaction handlers for various gestures - currently just mouse-multi select
-    // of notes, will later also attach handlers for single-note drawing and ableton "draw mode" style interaction
-    attachMouseModifierHandlers(backgroundElements, svgRoot);
+    backgroundElements_.forEach(function(elem){
+        elem.on('mousedown', function(event){
+            //clear previous mouse multi-select gesture state
+            clearNoteSelection();
 
-    addNote(120, 0, 1);
-    addNote(115, 0, 1);
-
-
-    /* the onscreen view area (the root SVG element) is only 300x300, but we have drawn shapes 
-     * that are contained in a 400x400 box. the SVG viewbox feature lets you draw arbitraily  
-     * sized images and then view them at whatever scale you want in your view area
-     */
-    svgRoot.viewbox(0, 0, viewportWidth, viewportHeight);
-
-    // setMouseMovementHandlers(svgRoot);
-
-    $('#drawing').keydown(keydownHandler);
-    $('#drawing').keyup(keyupHandler);
-});
+            //restart new mouse multi-select gesture
+            selectRect = svgParentObj.rect().fill('#008').attr('opacity', 0.25);
+            selectRect.draw(event);
+            svgParentObj.on("mousemove", function(event){
+                
+                //select notes which intersect with the selectRect (mouse selection area)
+                Object.keys(notes).forEach(function(noteId){
+                    var noteElem = notes[noteId].elem;
+                    
+                    // var intersecting = svgParentObj.node.checkIntersection(noteElem.node, selectRect.node.getBBox());
+                    var intersecting = selectRectIntersection(selectRect, noteElem);
+                    if(intersecting) {
+                        selectNote(noteElem);                        
+                    }
+                    else {
+                        deselectNote(noteElem)
+                    }
+                });
+            })
+        }); 
+    });
+}
 
 
 //duration is number of quarter notes, pitch is 0-indexed MIDI
@@ -180,6 +223,7 @@ function addNote(pitch, position, duration){
         info: {pitch, position, duration}
     }
     noteCount++;
+    //inProgress - update history
     return rect.noteId;
 }
 
@@ -193,9 +237,11 @@ function attachIndividualNoteUpdateHandlers(noteElem, initialAttachment){
     noteElem.on('dragend', function(event){
             snapPositionToGrid(this, xSnap, ySnap);
             updateNoteInfo(notes[this.noteId]);
+            //inProgress - update history
         })
         .on('resizedone', function(event){
             updateNoteInfo(notes[this.noteId]);
+            //inProgress - update history
         })
     if(initialAttachment) {
         noteElem.on('click', function(event){
@@ -209,6 +255,32 @@ function attachIndividualNoteUpdateHandlers(noteElem, initialAttachment){
     }
 }
 
+//update underlying note info from SVG element change
+function updateNoteInfo(note){
+    var pitch = svgYtoPitch(note.elem.y());
+    var position = svgXtoPosition(note.elem.x());
+    var duration = note.elem.width()/quarterNoteWidth;
+    note.info = {pitch, position, duration};
+}
+
+//update note SVG element from underlying info change
+function updateNoteElement(note){
+    note.elem.x(note.info.position * quarterNoteWidth);
+    note.elem.y((127-note.info.pitch)*noteHeight);
+    note.elem.width(note.info.duration*quarterNoteWidth);
+}
+
+
+//public vars to allow live-codable testing in the console
+var bound = (n, l, h) => Math.min(h, Math.max(l, n));
+
+// Get point in global SVG space from mousemove event
+function svgMouseCoord(evt){
+  refPt.x = evt.clientX; 
+  refPt.y = evt.clientY;
+  return refPt.matrixTransform(svgRoot.node.getScreenCTM().inverse());
+}
+
 function svgYtoPitch(yVal) {return 127 - yVal/noteHeight;}
 function svgXtoPosition(xVal) {return xVal/quarterNoteWidth}
 function svgXYtoPitchPos(xVal, yVal){
@@ -220,18 +292,36 @@ function svgXYtoPitchPosQuant(xVal, yVal) {
     return {pitch: 127 - Math.floor(yVal/noteHeight), position: Math.floor(rawPosition * notesPerQuarterNote)/notesPerQuarterNote};
 }
 
-function updateNoteInfo(note){
-    var pitch = svgYtoPitch(note.elem.y());
-    var position = svgXtoPosition(note.elem.x());
-    var duration = note.elem.width()/quarterNoteWidth;
-    note.info = {pitch, position, duration};
+
+// need to calculate mouse delta from screen coordinates rather than SVG coordinates because
+// the SVG view moves after every frame, thus changing the read mouse coordintates and creating
+// wild feedback. root is the mouse position "snapshot" against which the delta is measured
+function getMouseDelta(event, root){
+    return {x: event.clientX - root.mouseX, y: event.clientY - root.mouseY};
 }
 
-function updateNoteElement(note){
-    note.elem.x(note.info.position * quarterNoteWidth);
-    note.elem.y((127-note.info.pitch)*noteHeight);
-    note.elem.width(note.info.duration*quarterNoteWidth);
+//take a snapshot of the mouse position 
+function resetMouseMoveRoot(event){
+    var vb = svgRoot.viewbox();
+    var svgXY = svgMouseCoord(event);
+    mouseMoveRoot = {
+        mouseX: event.clientX,
+        mouseY: event.clientY,
+        svgX: svgXY.x,
+        svgY: svgXY.y,
+        vbX: vb.x,
+        vbY: vb.y,
+        vbWidth: vb.width,
+        vbHeight: vb.height,
+        zoom: vb.zoom
+    };
+    mouseMoveRootNeedsReset = false;
 }
+
+var mouseScrollActive = false;
+var mouseZoomActive = false;
+var mouseMoveRootNeedsReset = true;
+var mouseMoveRoot = {x: -1, y: -1};
 
 function mouseScrollHandler(event){
     if(mouseMoveRootNeedsReset) resetMouseMoveRoot(event);
@@ -247,8 +337,6 @@ function mouseScrollHandler(event){
         svgRoot.viewbox(newVBPos.x, newVBPos.y, mouseMoveRoot.vbWidth, mouseMoveRoot.vbHeight);
     }
 }
-
-
 
 function mouseZoomHandler(event){
     if(mouseMoveRootNeedsReset) resetMouseMoveRoot(event);
@@ -271,35 +359,6 @@ function mouseZoomHandler(event){
         svgRoot.viewbox(newVBPos.x, newVBPos.y, newWidth, newHeight);
     }
 }
-
-// need to calculate mouse delta from screen coordinates rather than SVG coordinates because
-// the SVG view moves after every frame, thus changing the read mouse coordintates and creating
-// wild feedback.
-function getMouseDelta(event, root){
-    return {x: event.clientX - root.mouseX, y: event.clientY - root.mouseY};
-}
-
-function resetMouseMoveRoot(event){
-    var vb = svgRoot.viewbox();
-    var svgXY = svgMouseCoord(event);
-    mouseMoveRoot = {
-        mouseX: event.clientX,
-        mouseY: event.clientY,
-        svgX: svgXY.x,
-        svgY: svgXY.y,
-        vbX: vb.x,
-        vbY: vb.y,
-        vbWidth: vb.width,
-        vbHeight: vb.height,
-        zoom: vb.zoom
-    };
-    mouseMoveRootNeedsReset = false;
-}
-
-var mouseScrollActive = false;
-var mouseZoomActive = false;
-var mouseMoveRootNeedsReset = true;
-var mouseMoveRoot = {x: -1, y: -1};
 
 function keydownHandler(event){
     if(event.key == "Shift") shiftKeyDown = true; 
@@ -346,7 +405,6 @@ function refreshNoteModStartReference(noteIds){
     });
 }
 
-var dragCount = 0;
 // sets event handlers on each note element for position/resize multi-select changes
 function attachMultiSelectHandlersOnElement(noteElement){
     
@@ -357,7 +415,6 @@ function attachMultiSelectHandlersOnElement(noteElement){
     noteElement.on('dragstart', function(event){
         selectedNoteIds = Array.from(selectedElements).map(elem => elem.noteId);
         refreshNoteModStartReference(selectedNoteIds);
-        dragCount = 0;
     }); 
 
     noteElement.on('dragmove', function(event){
@@ -393,6 +450,7 @@ function attachMultiSelectHandlersOnElement(noteElement){
         //refresh the startReference so the next multi-select-transform works right
         refreshNoteModStartReference(selectedNoteIds);
         selectedNoteIds.forEach(id => updateNoteInfo(notes[id]));
+        //inProgress - update history
     });
 
     /* Performs the same resizing done on the clicked element to 
@@ -420,6 +478,7 @@ function attachMultiSelectHandlersOnElement(noteElement){
     noteElement.on('resizedone', function(event){
         refreshNoteModStartReference(selectedNoteIds);
         selectedNoteIds.forEach(id => updateNoteInfo(notes[id]));
+        //inProgress - update history
     });
 }
 
@@ -478,52 +537,6 @@ function boxIntersect(noteBox, selectBox){
 
 function clearNoteSelection(){
     selectedElements.forEach(noteElem => deselectNote(noteElem));
-}
-
-// attaches the appropriate handlers to the mouse event allowing to to 
-// start a multi-select gesture (and later draw mode)
-function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
-    var svgElem = svgParentObj.node;
- 
-    // need to listen on window so select gesture ends even if released outside the 
-    // bounds of the root svg element or browser
-    window.addEventListener('mouseup', function(event){
-        //end a multi-select drag gesture
-        if(selectRect) {
-            selectRect.draw('stop', event);
-            selectRect.remove();
-            svgParentObj.off("mousemove");
-            selectRect = null;
-        }
-    });
-
-
-    backgroundElements_.forEach(function(elem){
-        elem.on('mousedown', function(event){
-            //clear previous mouse multi-select gesture state
-            clearNoteSelection();
-
-            //restart new mouse multi-select gesture
-            selectRect = svgParentObj.rect().fill('#008').attr('opacity', 0.25);
-            selectRect.draw(event);
-            svgParentObj.on("mousemove", function(event){
-                
-                //select notes which intersect with the selectRect (mouse selection area)
-                Object.keys(notes).forEach(function(noteId){
-                    var noteElem = notes[noteId].elem;
-                    
-                    // var intersecting = svgParentObj.node.checkIntersection(noteElem.node, selectRect.node.getBBox());
-                    var intersecting = selectRectIntersection(selectRect, noteElem);
-                    if(intersecting) {
-                        selectNote(noteElem);                        
-                    }
-                    else {
-                        deselectNote(noteElem)
-                    }
-                });
-            })
-        }); 
-    });
 }
 
 /*
