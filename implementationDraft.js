@@ -94,8 +94,11 @@ var refPt;
 var shiftKeyDown = false;
 
 
-var historyList = []; //stack of states 
-var historyListIndex = 0; //how far away from end of array (e.g, how many redos available)
+var historyList = []; //list of states 
+// How far away from end of array (e.g, how many redos available).
+// historyList.length - historyListIndex - 1 always points to where undo comes from
+// historyList.length - historyListIndex always points to where redo comes from
+var historyListIndex = 0; 
 
 var pianoRollHeight;
 var pianoRollWidth
@@ -108,8 +111,8 @@ SVG.on(document, 'DOMContentLoaded', function() {
     // of notes, will later also attach handlers for single-note drawing and ableton "draw mode" style interaction
     attachMouseModifierHandlers(backgroundElements, svgRoot);
 
-    addNote(120, 0, 1);
-    addNote(115, 0, 1);
+    addNote(120, 0, 1, false);
+    addNote(115, 0, 1, false);
 
 
     /* the onscreen view area (the root SVG element) is only 300x300, but we have drawn shapes 
@@ -159,7 +162,7 @@ function drawBackground() {
             svgXY = svgMouseCoord(event);
             // svgXY = {x: event.clientX, y: event.clientY};
             var pitchPos = svgXYtoPitchPosQuant(svgXY.x, svgXY.y);
-            addNote(pitchPos.pitch, pitchPos.position, 4/noteSubDivision);
+            addNote(pitchPos.pitch, pitchPos.position, 4/noteSubDivision, false);
         });
     });
 }
@@ -213,7 +216,7 @@ function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
 
 
 //duration is number of quarter notes, pitch is 0-indexed MIDI
-function addNote(pitch, position, duration){
+function addNote(pitch, position, duration, isHistoryManipulation){
     var rect = svgRoot.rect(duration*quarterNoteWidth, noteHeight).move(position*quarterNoteWidth, (127-pitch)*noteHeight).fill(noteColor);;
     rect.noteId = noteCount;
     rect.draggable().selectize({rotationPoint: false, points:["r", "l"]}).resize();
@@ -223,8 +226,20 @@ function addNote(pitch, position, duration){
         info: {pitch, position, duration}
     }
     noteCount++;
-    //inProgress - update history
+    if(!isHistoryManipulation){
+        //inProgress - update history
+    }
     return rect.noteId;
+}
+
+function deleteNotes(){
+    //for selected notes - delete svg elements, remove entries from "notes" objects
+    selectedElements.forEach(function(elem){
+        elem.selectize(false);
+        elem.remove();
+        delete notes[elem.noteId];
+    });
+    //inProgress - update history
 }
 
 function removeIndividualNoteUpdateHandlers(noteElem){
@@ -261,6 +276,11 @@ function updateNoteInfo(note){
     var position = svgXtoPosition(note.elem.x());
     var duration = note.elem.width()/quarterNoteWidth;
     note.info = {pitch, position, duration};
+}
+
+function updateNoteInfoMultiple(notes){
+    notes.forEach(note => updateNoteInfo(note));
+    //inProgress - update history
 }
 
 //update note SVG element from underlying info change
@@ -372,6 +392,10 @@ function keydownHandler(event){
         mouseZoomActive = true;
         $('#drawing').mousemove(mouseZoomHandler);
     }
+    if(event.key == "Backspace"){
+        deleteNotes();
+        event.stopPropagation();
+    }
 }
 
 function keyupHandler(event){
@@ -384,6 +408,34 @@ function keyupHandler(event){
         mouseZoomActive = false;
         $('#drawing').off('mousemove');
     }
+}
+
+function snapshotNoteState(){
+    var noteState = Object.values(notes).map(note => note.info);
+    if(historyListIndex == 0){
+        historyList.push(noteState);
+    } else {
+        historyListIndex--;
+        historyList[historyList.length - historyListIndex - 1];
+    }
+}
+
+function removeNoteElements(){
+    Object.values(notes).forEach(note => note.elem.remove());
+}
+
+function executeUndo() {
+    if(historyListIndex === historyList.length) return; //inProgress - check indexes
+    removeNoteElements();
+    notes = {};
+
+}
+
+function executeRedo() {
+    if(historyListIndex == 0) return; //inProgress - check indexes
+    removeNoteElements();
+    notes = {};
+
 }
 
 //function that snapes note svg elements into place
@@ -447,10 +499,11 @@ function attachMultiSelectHandlersOnElement(noteElement){
         selectedElements.forEach(function(elem){
             snapPositionToGrid(elem, xSnap, ySnap); 
         });
+
         //refresh the startReference so the next multi-select-transform works right
         refreshNoteModStartReference(selectedNoteIds);
-        selectedNoteIds.forEach(id => updateNoteInfo(notes[id]));
-        //inProgress - update history
+
+        updateNoteInfoMultiple(selectedNoteIds.map(id => notes[id]));
     });
 
     /* Performs the same resizing done on the clicked element to 
@@ -477,7 +530,7 @@ function attachMultiSelectHandlersOnElement(noteElement){
     //refresh the startReference so the next multi-select-transform works right
     noteElement.on('resizedone', function(event){
         refreshNoteModStartReference(selectedNoteIds);
-        selectedNoteIds.forEach(id => updateNoteInfo(notes[id]));
+        updateNoteInfoMultiple(selectedNoteIds.map(id => notes[id]));
         //inProgress - update history
     });
 }
