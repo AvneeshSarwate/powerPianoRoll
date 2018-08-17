@@ -428,6 +428,7 @@ function snapshotNoteState(){
     } else {
         historyList = historyList.splice(0, historyList.length - historyListIndex);
         historyList.push(noteState);
+        historyListIndex--;
     }
 }
 
