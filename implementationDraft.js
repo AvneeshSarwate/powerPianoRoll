@@ -24,7 +24,10 @@ How note-state <-> note-svg-elements is handled is still TBD.
     - could implement 2 finger scroll - https://developer.mozilla.org/en-US/docs/Web/API/Touch_events/Multi-touch_interaction
 - X implement double-click to add note interaction (should be straightforwards, svg-wise)
 - X implement delete
-- implement undo
+- X implement undo/redo
+- get to ableton parity with regards to 
+    - selected notes and then moving/resizing a non-sected note 
+    - handling overlaps on resizing
 - implement cursor and cut/copy/paste
 - implement moving highlighted notes by arrow click 
 - figure out floating note names on side and time-values on top 
