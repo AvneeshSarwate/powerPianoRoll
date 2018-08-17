@@ -26,7 +26,7 @@ How note-state <-> note-svg-elements is handled is still TBD.
 - X implement delete
 - X implement undo/redo
 - get to ableton parity with regards to 
-    - selected notes and then moving/resizing a non-sected note 
+    - X selected notes and then moving/resizing a non-sected note 
     - handling overlaps on resizing
 - implement cursor and cut/copy/paste
 - implement moving highlighted notes by arrow click 
@@ -111,18 +111,14 @@ SVG.on(document, 'DOMContentLoaded', function() {
 
     drawBackground();
 
-    // attach the interaction handlers for various gestures - currently just mouse-multi select
-    // of notes, will later also attach handlers for single-note drawing and ableton "draw mode" style interaction
-    attachMouseModifierHandlers(backgroundElements, svgRoot);
+    // attach the interaction handlers not related to individual notes
+    attachHandlersOnBackground(backgroundElements, svgRoot);
 
     addNote(120, 0, 1, false);
     addNote(115, 0, 1, false);
 
 
-    /* the onscreen view area (the root SVG element) is only 300x300, but we have drawn shapes 
-     * that are contained in a 400x400 box. the SVG viewbox feature lets you draw arbitraily  
-     * sized images and then view them at whatever scale you want in your view area
-     */
+    //set the view-area so we aren't looking at the whole 127 note 100 measure piano roll
     svgRoot.viewbox(0, 0, viewportWidth, viewportHeight);
 
     // setMouseMovementHandlers(svgRoot);
@@ -174,7 +170,7 @@ function drawBackground() {
 
 // attaches the appropriate handlers to the mouse event allowing to to 
 // start a multi-select gesture (and later draw mode)
-function attachMouseModifierHandlers(backgroundElements_, svgParentObj){
+function attachHandlersOnBackground(backgroundElements_, svgParentObj){
     var svgElem = svgParentObj.node;
  
     // need to listen on window so select gesture ends even if released outside the 
@@ -224,7 +220,7 @@ function addNote(pitch, position, duration, isHistoryManipulation){
     var rect = svgRoot.rect(duration*quarterNoteWidth, noteHeight).move(position*quarterNoteWidth, (127-pitch)*noteHeight).fill(noteColor);;
     rect.noteId = noteCount;
     rect.draggable().selectize({rotationPoint: false, points:["r", "l"]}).resize();
-    attachIndividualNoteUpdateHandlers(rect, true);
+    attachHandlersOnElement(rect);
     notes[noteCount] = {
         elem: rect, 
         info: {pitch, position, duration}
@@ -250,47 +246,6 @@ function deleteNotes(elements){
     snapshotNoteState();
 }
 
-function removeIndividualNoteUpdateHandlers(noteElem){
-    noteElem.off('dragstart');
-    noteElem.off('dragend');
-    noteElem.off('resizedone');
-    // noteElem.off('click');
-}
-
-function attachIndividualNoteUpdateHandlers(noteElem, initialAttachment){
-    noteElem.on('dragstart', function(event){
-            refreshNoteModStartReference([this.noteId]);
-        })
-        .on('dragend', function(event){
-            //used to prevent click events from triggering after drag
-            this.motionOnDrag = checkIfNoteMovedSignificantly(this, 3);
-            if(!this.motionOnDrag) return;
-            snapPositionToGrid(this, xSnap, ySnap);
-            updateNoteInfo(notes[this.noteId], false);
-        })
-        .on('resizestart', function(event){
-            refreshNoteModStartReference([this.noteId]);
-        })
-        .on('resizedone', function(event){
-            if(!checkIfNoteResizedSignificantly(this, 3)) return;
-            updateNoteInfo(notes[this.noteId], false);
-        })
-    if(initialAttachment) {
-        noteElem.on('click', function(event){
-            //jump
-            if(!this.motionOnDrag) {
-                if(!shiftKeyDown) clearNoteSelection();
-                selectNote(this);
-            }
-            this.motionOnDrag = false; //cleanup - clean up placement of this/encapsulating it in some stateful function
-        });
-        noteElem.on('dblclick', function(event){
-            deleteNotes([this]);
-            console.log('delete on double-click')
-        })
-    }
-}
-
 //update underlying note info from SVG element change
 function updateNoteInfo(note, calledFromBatchUpdate){
     var pitch = svgYtoPitch(note.elem.y());
@@ -300,6 +255,7 @@ function updateNoteInfo(note, calledFromBatchUpdate){
     if(!calledFromBatchUpdate) snapshotNoteState();
 }
 
+//a separate function so that batch note changes are saved in the undo history as a single event
 function updateNoteInfoMultiple(notes){
     notes.forEach(note => updateNoteInfo(note, true));
     snapshotNoteState();
@@ -450,14 +406,12 @@ function snapshotNoteState(){
 function executeUndo() {
     if(historyList.length - historyListIndex - 2 < 0) return; 
     historyListIndex++;
-    console.log("undo", historyList.length - historyListIndex - 1);
     restoreNoteState(historyList.length - historyListIndex - 1);
 }
 
 function executeRedo() {
     if(historyListIndex == 0) return;
     historyListIndex--;
-    console.log("redo", historyList.length - historyListIndex - 1);
     restoreNoteState(historyList.length - historyListIndex - 1);
 }
 
@@ -465,7 +419,6 @@ function restoreNoteState(histIndex){
     Object.values(notes).forEach(note => deleteElement(note.elem));
     notes = {};
     var noteState = historyList[histIndex];
-    console.log("restoreNoteState", histIndex, noteState);
     noteState.forEach(function(noteInfo){
         addNote(noteInfo.pitch, noteInfo.position, noteInfo.duration, true);
     });
@@ -491,26 +444,38 @@ function refreshNoteModStartReference(noteIds){
     });
 }
 
+
+//used to differentiate between "clicks" and "drags" from a user perspective
+//to stop miniscule changes from being added to undo history
 function checkIfNoteMovedSignificantly(noteElement, thresh){
     return Math.abs(noteElement.x() - noteModStartReference[noteElement.noteId].x) > thresh || Math.abs(noteElement.y() - noteModStartReference[noteElement.noteId].y) > thresh;
 }
 
+//used to differentiate between "clicks" and "resize" from a user perspective 
+//to stop miniscule changes from being added to undo history
 function checkIfNoteResizedSignificantly(noteElement, thresh){
     return Math.abs(noteElement.width() - noteModStartReference[noteElement.noteId].width) > thresh;
 }
 
+function initializeNoteModificationAction(element){
+    selectedNoteIds = Array.from(selectedElements).map(elem => elem.noteId);
+    if(!selectedNoteIds.includes(element.noteId)) {
+        clearNoteSelection();
+        selectNote(element);
+        selectedNoteIds = [element.noteId];
+    }
+    refreshNoteModStartReference(selectedNoteIds);
+}
+
 // sets event handlers on each note element for position/resize multi-select changes
-function attachMultiSelectHandlersOnElement(noteElement){
+function attachHandlersOnElement(noteElement){
     
     /* Performs the same drag deviation done on the clicked element to 
      * the other selected elements
      */
 
-     removeIndividualNoteUpdateHandlers(noteElement); 
-
     noteElement.on('dragstart', function(event){
-        selectedNoteIds = Array.from(selectedElements).map(elem => elem.noteId);
-        refreshNoteModStartReference(selectedNoteIds);
+        initializeNoteModificationAction(this);
     }); 
 
     noteElement.on('dragmove', function(event){
@@ -545,8 +510,7 @@ function attachMultiSelectHandlersOnElement(noteElement){
     });
 
     noteElement.on('resizestart', function(event){
-        selectedNoteIds = Array.from(selectedElements).map(elem => elem.noteId);
-        refreshNoteModStartReference(selectedNoteIds);
+        initializeNoteModificationAction(this);
     });
 
     /* Performs the same resizing done on the clicked element to 
@@ -577,21 +541,22 @@ function attachMultiSelectHandlersOnElement(noteElement){
         refreshNoteModStartReference(selectedNoteIds);
         updateNoteInfoMultiple(selectedNoteIds.map(id => notes[id]));
     });
-}
 
-// stop bouncing position/size changes to other elements
-function removeMultiSelectHandlersOnElement(elem){
-    elem.off('dragstart');
-    elem.off('dragmove');
-    elem.off('dragend');
-    elem.off('resizing');
-    attachIndividualNoteUpdateHandlers(elem, false);
+    noteElement.on('click', function(event){
+        if(!this.motionOnDrag) {
+            if(!shiftKeyDown) clearNoteSelection();
+            selectNote(this);
+        }
+    });
+
+    noteElement.on('dblclick', function(event){
+        deleteNotes([this]);
+    })
 }
 
 
 function selectNote(noteElem){
     if(!selectedElements.has(noteElem)) {
-        attachMultiSelectHandlersOnElement(noteElem);
         selectedElements.add(noteElem);
         noteElem.fill(selectedNoteColor);
     }
@@ -599,7 +564,6 @@ function selectNote(noteElem){
 
 function deselectNote(noteElem){
     if(selectedElements.has(noteElem)) {
-        removeMultiSelectHandlersOnElement(noteElem);
         selectedElements.delete(noteElem);
         noteElem.fill(noteColor);
     }
