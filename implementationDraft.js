@@ -228,7 +228,6 @@ function addNote(pitch, position, duration, isHistoryManipulation){
     }
     noteCount++;
     if(!isHistoryManipulation){
-        //inProgress - update history
         snapshotNoteState();
     }
     return rect.noteId;
@@ -245,18 +244,24 @@ function deleteNotes(elements){
         deleteElement(elem);
         delete notes[elem.noteId];
     });
-    //inProgress - update history
     snapshotNoteState();
 }
 
 function removeIndividualNoteUpdateHandlers(noteElem){
+    noteElem.off('dragstart');
     noteElem.off('dragend');
     noteElem.off('resizedone');
     // noteElem.off('click');
 }
 
 function attachIndividualNoteUpdateHandlers(noteElem, initialAttachment){
-    noteElem.on('dragend', function(event){
+    noteElem.on('dragstart', function(event){
+            refreshNoteModStartReference([this.noteId]);
+        })
+        .on('dragend', function(event){
+            //used to prevent click events from triggering after drag
+            this.motionOnDrag = checkIfNoteMovedSignificantly(this, 3);
+            if(!this.motionOnDrag) return;
             snapPositionToGrid(this, xSnap, ySnap);
             updateNoteInfo(notes[this.noteId], false);
         })
@@ -272,6 +277,10 @@ function attachIndividualNoteUpdateHandlers(noteElem, initialAttachment){
             }
             this.motionOnDrag = false; //cleanup - clean up placement of this/encapsulating it in some stateful function
         });
+        noteElem.on('dblclick', function(event){
+            deleteNotes([this]);
+            console.log('delete on double-click')
+        })
     }
 }
 
@@ -286,7 +295,6 @@ function updateNoteInfo(note, calledFromBatchUpdate){
 
 function updateNoteInfoMultiple(notes){
     notes.forEach(note => updateNoteInfo(note, true));
-    //inProgress - update history
     snapshotNoteState();
 }
 
@@ -433,14 +441,14 @@ function snapshotNoteState(){
 }
 
 function executeUndo() {
-    if(historyList.length - historyListIndex - 2 < 0) return; //inProgress - check indexes
+    if(historyList.length - historyListIndex - 2 < 0) return; 
     historyListIndex++;
     console.log("undo", historyList.length - historyListIndex - 1);
     restoreNoteState(historyList.length - historyListIndex - 1);
 }
 
 function executeRedo() {
-    if(historyListIndex == 0) return; //inProgress - check indexes
+    if(historyListIndex == 0) return;
     historyListIndex--;
     console.log("redo", historyList.length - historyListIndex - 1);
     restoreNoteState(historyList.length - historyListIndex - 1);
@@ -476,12 +484,18 @@ function refreshNoteModStartReference(noteIds){
     });
 }
 
+function checkIfNoteMovedSignificantly(noteElement, thresh){
+    return Math.abs(noteElement.x() - noteModStartReference[noteElement.noteId].x) > thresh || Math.abs(noteElement.y() - noteModStartReference[noteElement.noteId].y) > thresh;
+}
+
 // sets event handlers on each note element for position/resize multi-select changes
 function attachMultiSelectHandlersOnElement(noteElement){
     
     /* Performs the same drag deviation done on the clicked element to 
      * the other selected elements
      */
+
+     removeIndividualNoteUpdateHandlers(noteElement); 
 
     noteElement.on('dragstart', function(event){
         selectedNoteIds = Array.from(selectedElements).map(elem => elem.noteId);
@@ -500,20 +514,14 @@ function attachMultiSelectHandlersOnElement(noteElement){
         });
     });
 
-    /* remove the original dragend function which only snaps the target
-     * element to the grid
-     */
-    removeIndividualNoteUpdateHandlers(noteElement); 
-
     /* have a dragend function that snaps ALL selected elements to the grid
      */
     noteElement.on('dragend', function(event){
         //cleanup - to distinguish between click and drag - check here if element/mouse has moved compared to reference (is there a better way?)
         
-        this.motionOnDrag = false;
-        if(Math.abs(this.x() - noteModStartReference[this.noteId].x) > 3 || Math.abs(this.y() - noteModStartReference[this.noteId].y) > 3){
-            this.motionOnDrag = true; //used to prevent click events from triggering after drag
-        }
+        //used to prevent click events from triggering after drag
+        this.motionOnDrag = checkIfNoteMovedSignificantly(this, 3);
+        if(!this.motionOnDrag) return;
 
         selectedElements.forEach(function(elem){
             snapPositionToGrid(elem, xSnap, ySnap); 
@@ -523,6 +531,11 @@ function attachMultiSelectHandlersOnElement(noteElement){
         refreshNoteModStartReference(selectedNoteIds);
 
         updateNoteInfoMultiple(selectedNoteIds.map(id => notes[id]));
+    });
+
+    noteElement.on('resizestart', function(event){
+        selectedNoteIds = Array.from(selectedElements).map(elem => elem.noteId);
+        refreshNoteModStartReference(selectedNoteIds);
     });
 
     /* Performs the same resizing done on the clicked element to 
