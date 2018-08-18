@@ -30,7 +30,13 @@ How note-state <-> note-svg-elements is handled is still TBD.
     - X selected notes and then moving/resizing a non-sected note 
     - handle drag quantization to be ableton like
         - need to handle out-of-bounds dragging
-    - handling overlaps on resizing
+    - handling overlaps on resizing, drag and doubleclick-to-add-note
+        - resizing quantization should be triggered once the end nears a note-section border. currently it quantizes
+          once the deviation distance is near the quanization length
+        - in general - if selected/new notes intersect with start start of "other" note, the "other" note is deleted,
+          and if they intersect with the end of "other" notes, the "other" notes are truncated.
+          The exception is if a selected note is resized into another selected note, in which case the resizing is 
+          truncated at the start of the next selected note
 - implement cursor and cut/copy/paste
 - implement moving highlighted notes by arrow click 
 - figure out floating note names on side and time-values on top 
@@ -49,8 +55,6 @@ How note-state <-> note-svg-elements is handled is still TBD.
 
 
 var svgRoot; //the svg root element
-
-var l1, l2; //manually created "note" elements to test interaction
 
 /* a dictionary that, upon the start of a group drag/resize event, stores the 
  * initial positions and lengths of all notes so that the mouse modifications to
@@ -486,6 +490,21 @@ function attachHandlersOnBackground(backgroundElements_, svgParentObj){
     });
 }
 
+function populateSpatialNoteTracker(){
+    spatialNoteTracker = {};
+    Object.values(notes).forEach(function(note){
+        if(spatialNoteTracker[note.info.pitch]){
+            spatialNoteTracker[note.info.pitch].push(note);
+        } 
+        else {
+            spatialNoteTracker[note.info.pitch] = [];
+            spatialNoteTracker[note.info.pitch].push(note);
+        }
+    });
+    Object.values(spatialNoteTracker).forEach(noteList => noteList.sort((a1, a2) => a1.position - a2.position)
+}
+
+
 var quant = (val, qVal) => Math.floor(val/qVal) * qVal;
 var quantRound = (val, qVal) => Math.round(val/qVal) * qVal;
 var draggingActive = false;
@@ -509,7 +528,9 @@ function attachHandlersOnElement(noteElement, svgParentObj){
                 var xMove;
                 var xDevRaw = svgXY.x - mouseMoveRoot.svgX;
                 var quantWidth = quarterNoteWidth * (4/noteSubDivision);
-                if(Math.abs(svgXY.x - mouseMoveRoot.svgX) < quantWidth * 0.9 && !quantDragActivated) xMove = xDevRaw;
+                if(Math.abs(svgXY.x - mouseMoveRoot.svgX) < quantWidth * 0.9 && !quantDragActivated) { 
+                    xMove = xDevRaw;
+                }
                 else {
                     xMove = quantRound(xDevRaw, quantWidth);
                     quantDragActivated = true;
