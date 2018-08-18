@@ -480,8 +480,7 @@ function attachHandlersOnBackground(backgroundElements_, svgParentObj){
                     var intersecting = selectRectIntersection(selectRect, noteElem);
                     if(intersecting) {
                         selectNote(noteElem);                        
-                    }
-                    else {
+                    } else {
                         deselectNote(noteElem)
                     }
                 });
@@ -490,18 +489,43 @@ function attachHandlersOnBackground(backgroundElements_, svgParentObj){
     });
 }
 
+
+
 function populateSpatialNoteTracker(){
     spatialNoteTracker = {};
     Object.values(notes).forEach(function(note){
         if(spatialNoteTracker[note.info.pitch]){
             spatialNoteTracker[note.info.pitch].push(note);
-        } 
-        else {
+        } else {
             spatialNoteTracker[note.info.pitch] = [];
             spatialNoteTracker[note.info.pitch].push(note);
         }
     });
     Object.values(spatialNoteTracker).forEach(noteList => noteList.sort((a1, a2) => a1.position - a2.position));
+}
+
+//inProgress - use z/layering values to elegantly handle resizing selected vs unselected without flickering
+function executeOverlapVisibleChanges(){
+    selectedElements.forEach(function(selectedElem){
+        var samePitch = spatialNoteTracker[notes[elem.noteId].info.pitch];
+        if(samePitch) {
+            samePitch.forEach(function(elem){
+                if(selectedElements.has(elem)){
+                    var earlierElem = elem.x() < selectedElem.x() ? elem : selectedElem;
+                    var laterElem = elem.x() > selectedElem.x() ? elem : selectedElem; 
+
+                } else {
+                    //truncating the end of the non-selected note
+                    if(elem.x() < selectedElem.x() && selectedElem.x() < elem.x()+elem.width()){
+
+                    //deleting the non-selected note
+                    } else if(selectedElem.x() < elem.x() && elem.x() < selectedElem.x()+selectedElem.width()){
+                        
+                    } 
+                }
+            });
+        }
+    });
 }
 
 
@@ -530,8 +554,7 @@ function attachHandlersOnElement(noteElement, svgParentObj){
                 var quantWidth = quarterNoteWidth * (4/noteSubDivision);
                 if(Math.abs(svgXY.x - mouseMoveRoot.svgX) < quantWidth * 0.9 && !quantDragActivated) { 
                     xMove = xDevRaw;
-                }
-                else {
+                } else {
                     xMove = quantRound(xDevRaw, quantWidth);
                     quantDragActivated = true;
                 }
@@ -560,8 +583,7 @@ function attachHandlersOnElement(noteElement, svgParentObj){
                 var oldNoteVals = noteModStartReference[id];
                 if(isEndChange) { 
                     notes[id].elem.width(oldNoteVals.width + event.detail.dx);
-                }
-                else { 
+                } else { 
                     notes[id].elem.width(oldNoteVals.width - event.detail.dx);
                     notes[id].elem.x(oldNoteVals.x + event.detail.dx);
                 }
