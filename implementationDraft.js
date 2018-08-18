@@ -501,7 +501,7 @@ function populateSpatialNoteTracker(){
             spatialNoteTracker[note.info.pitch].push(note);
         }
     });
-    Object.values(spatialNoteTracker).forEach(noteList => noteList.sort((a1, a2) => a1.position - a2.position)
+    Object.values(spatialNoteTracker).forEach(noteList => noteList.sort((a1, a2) => a1.position - a2.position));
 }
 
 
