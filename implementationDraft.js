@@ -65,7 +65,7 @@ var noteModStartReference;
 var notes = {};
 
 
-//used to track note show/hide on resize/drag
+//used to track note show/hide on resize/drag - map of pitch -> note elems of that pitch sorted by start time
 var spatialNoteTracker = {}
 
 //elements selected by a mouse-region highlight
@@ -427,6 +427,7 @@ function initializeNoteModificationAction(element){
         selectNote(element);
         selectedNoteIds = [element.noteId];
     }
+    populateSpatialNoteTracker();
     refreshNoteModStartReference(selectedNoteIds);
 }
 
@@ -495,10 +496,10 @@ function populateSpatialNoteTracker(){
     spatialNoteTracker = {};
     Object.values(notes).forEach(function(note){
         if(spatialNoteTracker[note.info.pitch]){
-            spatialNoteTracker[note.info.pitch].push(note);
+            spatialNoteTracker[note.info.pitch].push(note.elem);
         } else {
             spatialNoteTracker[note.info.pitch] = [];
-            spatialNoteTracker[note.info.pitch].push(note);
+            spatialNoteTracker[note.info.pitch].push(note.elem);
         }
     });
     Object.values(spatialNoteTracker).forEach(noteList => noteList.sort((a1, a2) => a1.position - a2.position));
@@ -507,21 +508,35 @@ function populateSpatialNoteTracker(){
 //inProgress - use z/layering values to elegantly handle resizing selected vs unselected without flickering
 function executeOverlapVisibleChanges(){
     selectedElements.forEach(function(selectedElem){
-        var samePitch = spatialNoteTracker[notes[elem.noteId].info.pitch];
+        var samePitch = spatialNoteTracker[notes[selectedElem.noteId].info.pitch];
+        console.log("overlap", samePitch, notes[selectedElem.noteId].info.pitch);
         if(samePitch) {
             samePitch.forEach(function(elem){
                 if(selectedElements.has(elem)){
                     var earlierElem = elem.x() < selectedElem.x() ? elem : selectedElem;
                     var laterElem = elem.x() > selectedElem.x() ? elem : selectedElem; 
 
+
                 } else {
+
                     //truncating the end of the non-selected note
                     if(elem.x() < selectedElem.x() && selectedElem.x() < elem.x()+elem.width()){
-
+                        elem.show();
+                        elem.width(selectedElem.x() - elem.x());
                     //deleting the non-selected note
                     } else if(selectedElem.x() < elem.x() && elem.x() < selectedElem.x()+selectedElem.width()){
-                        
+                        elem.hide();
+                    } else {
+                        elem.show();
+                        elem.width(notes[elem.noteId].info.duration * quarterNoteWidth);
                     } 
+                    /*
+                        This doesn't work - need to redraw all non-selected elements that have been modified by 
+                        selected elements even if they are not of the same pitch as any selected elements anymore. 
+                        can either keep track of a set of "touched" elements and handle that state, or just redraw
+                        all elements in the viewbox every time (and if necessary figure out how to optimize by differntiating
+                        drawing commands btw "continuous" drag/resize and quantized drag)
+                    */
                 }
             });
         }
@@ -562,7 +577,9 @@ function attachHandlersOnElement(noteElement, svgParentObj){
                 selectedNoteIds.forEach(function(id){
                     notes[id].elem.x(noteModStartReference[id].x + xMove);
                     notes[id].elem.y(noteModStartReference[id].y + yMove);
+                    notes[id].info.pitch = svgYtoPitch(noteModStartReference[id].y + yMove);
                 });
+                executeOverlapVisibleChanges();
             });
         }
     });
