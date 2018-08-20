@@ -65,7 +65,7 @@ var noteModStartReference;
 var notes = {};
 
 
-//used to track note show/hide on resize/drag - map of pitch -> note elems of that pitch sorted by start time
+//used to track note show/hide on resize/drag - map of pitch -> noteInfo of that pitch sorted by start time
 var spatialNoteTracker = {}
 
 //elements selected by a mouse-region highlight
@@ -226,6 +226,7 @@ function updateNoteInfoMultiple(notes){
 
 //update note SVG element from underlying info change
 function updateNoteElement(note){
+    note.elem.show();
     note.elem.x(note.info.position * quarterNoteWidth);
     note.elem.y((127-note.info.pitch)*noteHeight);
     note.elem.width(note.info.duration*quarterNoteWidth);
@@ -422,6 +423,7 @@ function checkIfNoteResizedSignificantly(noteElement, thresh){
 
 function initializeNoteModificationAction(element){
     selectedNoteIds = Array.from(selectedElements).map(elem => elem.noteId);
+    nonSelectedModifiedNotes.clear();
     if(!selectedNoteIds.includes(element.noteId)) {
         clearNoteSelection();
         selectNote(element);
@@ -496,51 +498,62 @@ function populateSpatialNoteTracker(){
     spatialNoteTracker = {};
     Object.values(notes).forEach(function(note){
         if(spatialNoteTracker[note.info.pitch]){
-            spatialNoteTracker[note.info.pitch].push(note.elem);
+            spatialNoteTracker[note.info.pitch].push(note);
         } else {
             spatialNoteTracker[note.info.pitch] = [];
-            spatialNoteTracker[note.info.pitch].push(note.elem);
+            spatialNoteTracker[note.info.pitch].push(note);
         }
     });
-    Object.values(spatialNoteTracker).forEach(noteList => noteList.sort((a1, a2) => a1.position - a2.position));
+    Object.values(spatialNoteTracker).forEach(noteList => noteList.sort((a1, a2) => a1.info.position - a2.info.position));
 }
 
+var nonSelectedModifiedNotes = new Set();
+var count = 0;
 //inProgress - use z/layering values to elegantly handle resizing selected vs unselected without flickering
 function executeOverlapVisibleChanges(){
+    var currentlyModifiedNotes = new Set();
     selectedElements.forEach(function(selectedElem){
-        var samePitch = spatialNoteTracker[notes[selectedElem.noteId].info.pitch];
-        console.log("overlap", samePitch, notes[selectedElem.noteId].info.pitch);
+        var selectedNote = notes[selectedElem.noteId];
+        var samePitch = spatialNoteTracker[selectedNote.info.pitch];
         if(samePitch) {
             samePitch.forEach(function(elem){
-                if(selectedElements.has(elem)){
-                    var earlierElem = elem.x() < selectedElem.x() ? elem : selectedElem;
-                    var laterElem = elem.x() > selectedElem.x() ? elem : selectedElem; 
+                if(selectedElem.noteId != elem.elem.noteId) {
+                    if(selectedElements.has(elem.elem)){
+                        // var earlierElem = elem.x() < selectedElem.x() ? elem : selectedElem;
+                        // var laterElem = elem.x() > selectedElem.x() ? elem : selectedElem; 
 
 
-                } else {
-
-                    //truncating the end of the non-selected note
-                    if(elem.x() < selectedElem.x() && selectedElem.x() < elem.x()+elem.width()){
-                        elem.show();
-                        elem.width(selectedElem.x() - elem.x());
-                    //deleting the non-selected note
-                    } else if(selectedElem.x() < elem.x() && elem.x() < selectedElem.x()+selectedElem.width()){
-                        elem.hide();
                     } else {
-                        elem.show();
-                        elem.width(notes[elem.noteId].info.duration * quarterNoteWidth);
-                    } 
-                    /*
-                        This doesn't work - need to redraw all non-selected elements that have been modified by 
-                        selected elements even if they are not of the same pitch as any selected elements anymore. 
-                        can either keep track of a set of "touched" elements and handle that state, or just redraw
-                        all elements in the viewbox every time (and if necessary figure out how to optimize by differntiating
-                        drawing commands btw "continuous" drag/resize and quantized drag)
-                    */
+
+                        //truncating the end of the non-selected note
+                        if(elem.info.position < selectedNote.info.position && selectedNote.info.position < elem.info.position+elem.info.duration) {
+                            if(count++ < 10) console.log(nonSelectedModifiedNotes, currentlyModifiedNotes, notesToRestore);
+                            currentlyModifiedNotes.add(elem.elem.noteId);
+                            elem.elem.show();
+                            elem.elem.width((selectedNote.info.position - elem.info.position)*quarterNoteWidth);
+                        //deleting the non-selected note
+                        } else if(selectedNote.info.position < elem.info.position && elem.info.position < selectedNote.info.position+selectedNote.info.duration) {
+                            currentlyModifiedNotes.add(elem.elem.noteId);
+                            elem.elem.hide();
+                        }
+                        
+                        /*
+                            inProgress - currently taking the touched-element tracking approach from below.
+                            This doesn't work - need to redraw all non-selected elements that have been modified by 
+                            selected elements even if they are not of the same pitch as any selected elements anymore. 
+                            can either keep track of a set of "touched" elements and handle that state, or just redraw
+                            all elements in the viewbox every time (and if necessary figure out how to optimize by differntiating
+                            drawing commands btw "continuous" drag/resize and quantized drag).
+
+                        */
+                    }
                 }
             });
         }
     });
+    var notesToRestore = nonSelectedModifiedNotes.difference(currentlyModifiedNotes);
+    notesToRestore.forEach(id => updateNoteElement(notes[id]));
+    nonSelectedModifiedNotes = currentlyModifiedNotes;
 }
 
 
@@ -577,7 +590,7 @@ function attachHandlersOnElement(noteElement, svgParentObj){
                 selectedNoteIds.forEach(function(id){
                     notes[id].elem.x(noteModStartReference[id].x + xMove);
                     notes[id].elem.y(noteModStartReference[id].y + yMove);
-                    notes[id].info.pitch = svgYtoPitch(noteModStartReference[id].y + yMove);
+                    updateNoteInfo(notes[id], true);
                 });
                 executeOverlapVisibleChanges();
             });
