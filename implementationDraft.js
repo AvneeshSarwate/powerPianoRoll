@@ -362,6 +362,7 @@ function keyupHandler(event){
 }
 
 function snapshotNoteState(){
+    console.log("snapshot", historyList.length, historyListIndex);
     var noteState = Object.values(notes).map(note => note.info);
     if(historyListIndex == 0){
         historyList.push(noteState);
@@ -438,6 +439,13 @@ function initializeNoteModificationAction(element){
     refreshNoteModStartReference(selectedNoteIds);
 }
 
+
+function updateNoteStateOnModificationCompletion(){
+    refreshNoteModStartReference(selectedNoteIds);
+    var changedNotes = selectedNoteIds.map(id => notes[id]).concat(Array.from(nonSelectedModifiedNotes).map(id => notes[id]));
+    updateNoteInfoMultiple(changedNotes);
+}
+
 // attaches the appropriate handlers to the mouse event allowing to to 
 // start a multi-select gesture (and later draw mode)
 function attachHandlersOnBackground(backgroundElements_, svgParentObj){ 
@@ -462,9 +470,7 @@ function attachHandlersOnBackground(backgroundElements_, svgParentObj){
             if(!dragTarget.motionOnDrag) return;
 
             //refresh the startReference so the next multi-select-transform works right
-            refreshNoteModStartReference(selectedNoteIds);
-            var changedNotes = selectedNoteIds.map(id => notes[id]).concat(Array.from(nonSelectedModifiedNotes).map(id => notes[id]));
-            updateNoteInfoMultiple(changedNotes);
+            updateNoteStateOnModificationCompletion();
             dragTarget = null;
         } 
     });
@@ -622,16 +628,18 @@ function attachHandlersOnElement(noteElement, svgParentObj){
                     notes[id].elem.width(oldNoteVals.width - event.detail.dx);
                     notes[id].elem.x(oldNoteVals.x + event.detail.dx);
                 }
+                updateNoteInfo(notes[id], true);
             }
         });
+        updateNoteInfo(notes[thisId], true);
+        executeOverlapVisibleChanges();
     });
 
     //refresh the startReference so the next multi-select-transform works right
     noteElement.on('resizedone', function(event){
         if(!checkIfNoteResizedSignificantly(this, 3)) return;
-
-        refreshNoteModStartReference(selectedNoteIds);
-        updateNoteInfoMultiple(selectedNoteIds.map(id => notes[id]));
+        console.log("resize done");
+        updateNoteStateOnModificationCompletion();
     });
 
     noteElement.on('click', function(event){
