@@ -211,10 +211,14 @@ function deleteNotes(elements){
 
 //update underlying note info from SVG element change
 function updateNoteInfo(note, calledFromBatchUpdate){
-    var pitch = svgYtoPitch(note.elem.y());
-    var position = svgXtoPosition(note.elem.x());
-    var duration = note.elem.width()/quarterNoteWidth;
-    note.info = {pitch, position, duration};
+    if(note.elem.visible()) {
+        var pitch = svgYtoPitch(note.elem.y());
+        var position = svgXtoPosition(note.elem.x());
+        var duration = note.elem.width()/quarterNoteWidth;
+        note.info = {pitch, position, duration};
+    } else {
+        delete notes[note.elem.noteId];
+    }
     if(!calledFromBatchUpdate) snapshotNoteState();
 }
 
@@ -458,8 +462,8 @@ function attachHandlersOnBackground(backgroundElements_, svgParentObj){
 
             //refresh the startReference so the next multi-select-transform works right
             refreshNoteModStartReference(selectedNoteIds);
-
-            updateNoteInfoMultiple(selectedNoteIds.map(id => notes[id]));
+            var changedNotes = selectedNoteIds.map(id => notes[id]).concat(Array.from(nonSelectedModifiedNotes).map(id => notes[id]));
+            updateNoteInfoMultiple(changedNotes);
             dragTarget = null;
         } 
     });
