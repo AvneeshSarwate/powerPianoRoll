@@ -527,9 +527,9 @@ function executeOverlapVisibleChanges(){
         var selectedNote = notes[selectedElem.noteId];
         var samePitch = spatialNoteTracker[selectedNote.info.pitch];
         if(samePitch) {
-            samePitch.forEach(function(elem){
-                if(selectedElem.noteId != elem.elem.noteId) {
-                    if(selectedElements.has(elem.elem)){
+            samePitch.forEach(function(note){
+                if(selectedElem.noteId != note.elem.noteId) {
+                    if(selectedElements.has(note.elem)){
                         // var earlierElem = elem.x() < selectedElem.x() ? elem : selectedElem;
                         // var laterElem = elem.x() > selectedElem.x() ? elem : selectedElem; 
 
@@ -537,15 +537,15 @@ function executeOverlapVisibleChanges(){
                     } else {
 
                         //truncating the end of the non-selected note
-                        if(elem.info.position < selectedNote.info.position && selectedNote.info.position < elem.info.position+elem.info.duration) {
+                        if(note.info.position < selectedNote.info.position && selectedNote.info.position < note.info.position+note.info.duration) {
                             if(count++ < 10) console.log(nonSelectedModifiedNotes, currentlyModifiedNotes, notesToRestore);
-                            currentlyModifiedNotes.add(elem.elem.noteId);
-                            elem.elem.show();
-                            elem.elem.width((selectedNote.info.position - elem.info.position)*quarterNoteWidth);
+                            currentlyModifiedNotes.add(note.elem.noteId);
+                            note.elem.show();
+                            note.elem.width((selectedNote.info.position - note.info.position)*quarterNoteWidth);
                         //deleting the non-selected note
-                        } else if(selectedNote.info.position < elem.info.position && elem.info.position < selectedNote.info.position+selectedNote.info.duration) {
-                            currentlyModifiedNotes.add(elem.elem.noteId);
-                            elem.elem.hide();
+                        } else if(selectedNote.info.position <= note.info.position && note.info.position < selectedNote.info.position+selectedNote.info.duration) {
+                            currentlyModifiedNotes.add(note.elem.noteId);
+                            note.elem.hide();
                         }
                         
                         /*
