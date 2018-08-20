@@ -35,8 +35,8 @@ How note-state <-> note-svg-elements is handled is still TBD.
           once the deviation distance is near the quanization length
         - in general - if selected/new notes intersect with start start of "other" note, the "other" note is deleted,
           and if they intersect with the end of "other" notes, the "other" notes are truncated.
-          The exception is if a selected note is resized into another selected note, in which case the resizing is 
-          truncated at the start of the next selected note
+          - The exception is if a selected note is resized into another selected note, in which case the resizing is 
+            truncated at the start of the next selected note
 - implement cursor and cut/copy/paste
 - implement moving highlighted notes by arrow click 
 - figure out floating note names on side and time-values on top 
@@ -520,7 +520,7 @@ function populateSpatialNoteTracker(){
 
 var nonSelectedModifiedNotes = new Set();
 var count = 0;
-//inProgress - use z/layering values to elegantly handle resizing selected vs unselected without flickering
+//inProgress - use z/layering values to elegantly handle resizing selected vs unselected without flickering??
 function executeOverlapVisibleChanges(){
     var currentlyModifiedNotes = new Set();
     selectedElements.forEach(function(selectedElem){
@@ -530,8 +530,9 @@ function executeOverlapVisibleChanges(){
             samePitch.forEach(function(note){
                 if(selectedElem.noteId != note.elem.noteId) {
                     if(selectedElements.has(note.elem)){
-                        // var earlierElem = elem.x() < selectedElem.x() ? elem : selectedElem;
-                        // var laterElem = elem.x() > selectedElem.x() ? elem : selectedElem; 
+                        var earlierElem = note.elem.x() < selectedNote.elem.x() ? note : selectedNote;
+                        var laterElem = note.elem.x() > selectedNote.elem.x() ? note : selectedNote; 
+
 
 
                     } else {
@@ -580,6 +581,8 @@ function attachHandlersOnElement(noteElement, svgParentObj){
      * the other selected elements
      */
 
+    noteElement.on('point', function(event){ console.log("select", event)});
+
     noteElement.on('mousedown', function(event){
         if(!mouseScrollActive && !mouseZoomActive) {
             resetMouseMoveRoot(event);
@@ -610,6 +613,11 @@ function attachHandlersOnElement(noteElement, svgParentObj){
 
     noteElement.on('resizestart', function(event){
         initializeNoteModificationAction(this);
+        //inProgress - to get reizing to work with inter-select overlap and to stop resizing of 
+        //clicked element at the start of another selected element, might need to remove the resize
+        //handlers of all of the selected elements here, calculate the resize using 'mousemove' info 
+        //by moving 'resizing' handler logic to 'mousemove', and then on 'mouseup' reattaching 'resize'
+        //handler (at least, for 'resizestart' to piggyback on the gesture detection).
     });
 
     /* Performs the same resizing done on the clicked element to 
@@ -705,13 +713,7 @@ WORKING BUG LOG
 - X prefix means good workaround found, but the "common sense" approach still fails and idk why
 
 
-- Clicking on notes snaps them all to grid - not necessarily technically a hard fix but need to 
-  decide how auto-snapping will work, and need to make it work with resizing (snap start position
-  on resize, but using a new function that doesn't "move" the whole note, just the start position?)
-- X - mouseup doesn't properly get registered on background elements, drawing multi-select rect by 
-  listening on the base svg element instead
-- X - mousedrag selection using native-svg checkIntersection doesn't seem to be working correctly 
-  with the note-line elements
+
 */
 
 
