@@ -112,7 +112,7 @@ var shiftKeyDown = false;
 var historyList = [[]]; //list of states. upon an edit, the end of historyList is always the current state 
 
 // How far away from end of array (e.g, how many redos available).
-// historyList.length - historyListIndex - 1 always points to the current state
+//  historyListIndex  is always the index of the current state in historyList
 var historyListIndex = 0; 
 
 var pianoRollHeight;
@@ -364,25 +364,25 @@ function keyupHandler(event){
 function snapshotNoteState(){
     console.log("snapshot", historyList.length, historyListIndex);
     var noteState = Object.values(notes).map(note => note.info);
-    if(historyListIndex == 0){
+    if(historyListIndex == historyList.length-1){
         historyList.push(noteState);
     } else {
-        historyList = historyList.splice(0, historyList.length - historyListIndex);
+        historyList = historyList.splice(0, historyListIndex+1);
         historyList.push(noteState);
-        historyListIndex--;
     }
+    historyListIndex++;
 }
 
 function executeUndo() {
-    if(historyList.length - historyListIndex - 2 < 0) return; 
-    historyListIndex++;
-    restoreNoteState(historyList.length - historyListIndex - 1);
+    if(historyListIndex == 0) return; //always start with an "no-notes" state
+    historyListIndex--;
+    restoreNoteState(historyListIndex);
 }
 
 function executeRedo() {
-    if(historyListIndex == 0) return;
-    historyListIndex--;
-    restoreNoteState(historyList.length - historyListIndex - 1);
+    if(historyListIndex == historyList.length-1) return;
+    historyListIndex++;
+    restoreNoteState(historyListIndex);
 }
 
 function restoreNoteState(histIndex){
