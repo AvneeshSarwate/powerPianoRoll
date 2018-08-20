@@ -217,6 +217,7 @@ function updateNoteInfo(note, calledFromBatchUpdate){
         var duration = note.elem.width()/quarterNoteWidth;
         note.info = {pitch, position, duration};
     } else {
+        deleteElement(note.elem);
         delete notes[note.elem.noteId];
     }
     if(!calledFromBatchUpdate) snapshotNoteState();
