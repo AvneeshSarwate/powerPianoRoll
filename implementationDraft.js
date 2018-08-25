@@ -473,6 +473,20 @@ function attachHandlersOnBackground(backgroundElements_, svgParentObj){
             updateNoteStateOnModificationCompletion();
             dragTarget = null;
         } 
+        if(resizingActive){
+            resizingActive= false;
+            quantResizingActivated = false;
+
+            svgParentObj.off("mousemove");
+
+            if(!checkIfNoteResizedSignificantly(resizeTarget, 3)) return;
+            console.log("resize done");
+
+            resizeTarget.resize();
+
+            updateNoteStateOnModificationCompletion();
+            resizeTarget = null;
+        }
     });
 
 
@@ -520,7 +534,7 @@ function populateSpatialNoteTracker(){
 
 var nonSelectedModifiedNotes = new Set();
 var count = 0;
-//inProgress - use z/layering values to elegantly handle resizing selected vs unselected without flickering??
+
 function executeOverlapVisibleChanges(){
     var currentlyModifiedNotes = new Set();
     selectedElements.forEach(function(selectedElem){
@@ -548,16 +562,6 @@ function executeOverlapVisibleChanges(){
                             currentlyModifiedNotes.add(note.elem.noteId);
                             note.elem.hide();
                         }
-                        
-                        /*
-                            inProgress - currently taking the touched-element tracking approach from below.
-                            This doesn't work - need to redraw all non-selected elements that have been modified by 
-                            selected elements even if they are not of the same pitch as any selected elements anymore. 
-                            can either keep track of a set of "touched" elements and handle that state, or just redraw
-                            all elements in the viewbox every time (and if necessary figure out how to optimize by differntiating
-                            drawing commands btw "continuous" drag/resize and quantized drag).
-
-                        */
                     }
                 }
             });
@@ -571,9 +575,16 @@ function executeOverlapVisibleChanges(){
 
 var quant = (val, qVal) => Math.floor(val/qVal) * qVal;
 var quantRound = (val, qVal) => Math.round(val/qVal) * qVal;
+
 var draggingActive = false;
 var quantDragActivated = false;
 var dragTarget = null;
+
+var resizingActive = false;
+var quantResizingActivated = false;
+var resizeTarget = null;
+
+
 // sets event handlers on each note element for position/resize multi-select changes
 function attachHandlersOnElement(noteElement, svgParentObj){
     
@@ -613,42 +624,70 @@ function attachHandlersOnElement(noteElement, svgParentObj){
 
     noteElement.on('resizestart', function(event){
         initializeNoteModificationAction(this);
+
+        //extracting the base dom-event from the SVG.js event so we can snapshot the current mouse coordinates
+        resetMouseMoveRoot(event.detail.event.detail.event);
+
         //inProgress - to get reizing to work with inter-select overlap and to stop resizing of 
         //clicked element at the start of another selected element, might need to remove the resize
         //handlers of all of the selected elements here, calculate the resize using 'mousemove' info 
         //by moving 'resizing' handler logic to 'mousemove', and then on 'mouseup' reattaching 'resize'
         //handler (at least, for 'resizestart' to piggyback on the gesture detection).
+        resizeTarget = this;
+        this.resize('stop');
+        resizingActive = true;
+        svgParentObj.on('mousemove', function(event){
+            var svgXY = svgMouseCoord(event);
+            var xMove;
+            var xDevRaw = svgXY.x - mouseMoveRoot.svgX;
+            var oldX = noteModStartReference[resizeTarget.noteId].x;
+            var isEndChange = resizeTarget.x() === oldX; //i.e, whehter you're moving the "start" or "end" of the note
+            selectedNoteIds.forEach(function(id){
+                var oldNoteVals = noteModStartReference[id];
+                //inProgress - control the resizing/overlap of the selected elements here and you don't 
+                //have to worry about them in executeOverlapVisibleChanges()
+
+                if(isEndChange) { 
+                    notes[id].elem.width(oldNoteVals.width + xDevRaw);
+                } else { 
+                    notes[id].elem.width(oldNoteVals.width - xDevRaw);
+                    notes[id].elem.x(oldNoteVals.x + xDevRaw);
+                }
+                updateNoteInfo(notes[id], true);
+            });
+            executeOverlapVisibleChanges();
+        })
     });
 
     /* Performs the same resizing done on the clicked element to 
      * the other selected elements
      */
-    noteElement.on('resizing', function(event){
-        var oldX = noteModStartReference[this.noteId].x;
-        var isEndChange = this.x() === oldX; //i.e, whehter you're moving the "start" or "end" of the note
-        var thisId = this.noteId;
-        selectedNoteIds.forEach(function(id){
-            if(id != thisId){
-                var oldNoteVals = noteModStartReference[id];
-                if(isEndChange) { 
-                    notes[id].elem.width(oldNoteVals.width + event.detail.dx);
-                } else { 
-                    notes[id].elem.width(oldNoteVals.width - event.detail.dx);
-                    notes[id].elem.x(oldNoteVals.x + event.detail.dx);
-                }
-                updateNoteInfo(notes[id], true);
-            }
-        });
-        updateNoteInfo(notes[thisId], true);
-        executeOverlapVisibleChanges();
-    });
+    // noteElement.on('resizing', function(event){
+    //     var oldX = noteModStartReference[this.noteId].x;
+    //     var isEndChange = this.x() === oldX; //i.e, whehter you're moving the "start" or "end" of the note
+    //     var thisId = this.noteId;
+    //     selectedNoteIds.forEach(function(id){
+    //         if(id != thisId){
+    //             var oldNoteVals = noteModStartReference[id];
+    //             if(isEndChange) { 
+    //                 notes[id].elem.width(oldNoteVals.width + event.detail.dx);
+    //             } else { 
+    //                 notes[id].elem.width(oldNoteVals.width - event.detail.dx);
+    //                 notes[id].elem.x(oldNoteVals.x + event.detail.dx);
+    //             }
+    //             updateNoteInfo(notes[id], true);
+    //         }
+    //     });
+    //     updateNoteInfo(notes[thisId], true);
+    //     executeOverlapVisibleChanges();
+    // });
 
-    //refresh the startReference so the next multi-select-transform works right
-    noteElement.on('resizedone', function(event){
-        if(!checkIfNoteResizedSignificantly(this, 3)) return;
-        console.log("resize done");
-        updateNoteStateOnModificationCompletion();
-    });
+    // //refresh the startReference so the next multi-select-transform works right
+    // noteElement.on('resizedone', function(event){
+    //     if(!checkIfNoteResizedSignificantly(this, 3)) return;
+    //     console.log("resize done");
+    //     updateNoteStateOnModificationCompletion();
+    // });
 
     noteElement.on('click', function(event){
         if(!this.motionOnDrag) {
