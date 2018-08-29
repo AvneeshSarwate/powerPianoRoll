@@ -28,8 +28,8 @@ How note-state <-> note-svg-elements is handled is still TBD.
 - X implement undo/redo
 - get to ableton parity with regards to 
     - X selected notes and then moving/resizing a non-sected note 
-    - handle drag quantization to be ableton like
-        - need to handle out-of-bounds dragging
+    - POSTPONED - handle drag quantization to be ableton like
+    - need to handle out-of-bounds dragging
     - handling overlaps on resizing, drag and doubleclick-to-add-note
         - resizing quantization should be triggered once the end nears a note-section border. currently it quantizes
           once the deviation distance is near the quanization length
@@ -37,6 +37,7 @@ How note-state <-> note-svg-elements is handled is still TBD.
           and if they intersect with the end of "other" notes, the "other" notes are truncated.
           - The exception is if a selected note is resized into another selected note, in which case the resizing is 
             truncated at the start of the next selected note
+- implement showing note names on notes
 - implement cursor and cut/copy/paste
 - implement moving highlighted notes by arrow click 
 - figure out floating note names on side and time-values on top 
@@ -49,6 +50,7 @@ How note-state <-> note-svg-elements is handled is still TBD.
  cleanup - stuff that works but needs cleaning
  inProgress - stuff that's not totally built yet
  future - guide notes for longer term extensible implementation ideas
+ postponed - features that are wanted but can be done later
 
 */
 
@@ -585,6 +587,14 @@ var quantResizingActivated = false;
 var resizeTarget = null;
 
 
+function isDragOutOfBounds(){
+
+}
+
+function isResizeOutOfBounds(){
+
+}
+
 // sets event handlers on each note element for position/resize multi-select changes
 function attachHandlersOnElement(noteElement, svgParentObj){
     
@@ -658,36 +668,6 @@ function attachHandlersOnElement(noteElement, svgParentObj){
             executeOverlapVisibleChanges();
         })
     });
-
-    /* Performs the same resizing done on the clicked element to 
-     * the other selected elements
-     */
-    // noteElement.on('resizing', function(event){
-    //     var oldX = noteModStartReference[this.noteId].x;
-    //     var isEndChange = this.x() === oldX; //i.e, whehter you're moving the "start" or "end" of the note
-    //     var thisId = this.noteId;
-    //     selectedNoteIds.forEach(function(id){
-    //         if(id != thisId){
-    //             var oldNoteVals = noteModStartReference[id];
-    //             if(isEndChange) { 
-    //                 notes[id].elem.width(oldNoteVals.width + event.detail.dx);
-    //             } else { 
-    //                 notes[id].elem.width(oldNoteVals.width - event.detail.dx);
-    //                 notes[id].elem.x(oldNoteVals.x + event.detail.dx);
-    //             }
-    //             updateNoteInfo(notes[id], true);
-    //         }
-    //     });
-    //     updateNoteInfo(notes[thisId], true);
-    //     executeOverlapVisibleChanges();
-    // });
-
-    // //refresh the startReference so the next multi-select-transform works right
-    // noteElement.on('resizedone', function(event){
-    //     if(!checkIfNoteResizedSignificantly(this, 3)) return;
-    //     console.log("resize done");
-    //     updateNoteStateOnModificationCompletion();
-    // });
 
     noteElement.on('click', function(event){
         if(!this.motionOnDrag) {
