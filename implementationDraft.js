@@ -169,24 +169,19 @@ function drawBackground() {
         var line = svgRoot.line(0, i*noteHeight, pianoRollWidth, i*noteHeight).stroke({width: thinLineWidth});
         backgroundElements.add(line);
     }
-    backgroundElements.forEach(elem => {
-        elem.on('dblclick', function(event){
-            var svgXY = svgMouseCoord(event);
-            // svgXY = {x: event.clientX, y: event.clientY};
-            var pitchPos = svgXYtoPitchPosQuant(svgXY.x, svgXY.y);
-            addNote(pitchPos.pitch, pitchPos.position, 4/noteSubDivision, false);
-        });
-    });
 }
 
 var pitchStrings = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-
+var textDev = 4;
 //duration is number of quarter notes, pitch is 0-indexed MIDI
 function addNote(pitch, position, duration, isHistoryManipulation){
     var rect = svgRoot.rect(duration*quarterNoteWidth, noteHeight).move(position*quarterNoteWidth, (127-pitch)*noteHeight).fill(noteColor);;
     rect.noteId = noteCount;
     rect.selectize({rotationPoint: false, points:["r", "l"]}).resize();
-    var text = svgRoot.text(svgYToPitchString(rect.y())).move(position*quarterNoteWidth + 10, (127-pitch)*noteHeight).style('pointer-events', 'none');
+    var text = svgRoot.text(svgYToPitchString(rect.y()))
+        .font({size: 14})
+        .move(position*quarterNoteWidth + textDev, (127-pitch)*noteHeight)
+        .style('pointer-events', 'none');
     attachHandlersOnElement(rect, svgRoot);
     notes[noteCount] = {
         elem: rect, 
@@ -241,7 +236,7 @@ function updateNoteElement(note){
     note.elem.x(note.info.position * quarterNoteWidth);
     note.elem.y((127-note.info.pitch)*noteHeight);
     note.elem.width(note.info.duration*quarterNoteWidth);
-    note.label.x(note.info.position * quarterNoteWidth + 10);
+    note.label.x(note.info.position * quarterNoteWidth + textDev);
     note.label.y((127-note.info.pitch)*noteHeight);
     note.label.text(svgYToPitchString(note.label.y()));
 }
@@ -413,7 +408,7 @@ function snapPositionToGrid(elem, xSize, ySize){
     elem.x(Math.round(elem.x()/xSize) * xSize);
     elem.y(Math.round(elem.y()/ySize) * ySize); //because we're using lines instead of rectangles
     var label = notes[elem.noteId].label;
-    label.x(Math.round(elem.x()/xSize) * xSize + 10);
+    label.x(Math.round(elem.x()/xSize) * xSize + textDev);
     label.y(Math.round(elem.y()/ySize) * ySize); //because we're using lines instead of rectangles
     label.text(svgYToPitchString(label.y()));
 }
@@ -506,7 +501,6 @@ function attachHandlersOnBackground(backgroundElements_, svgParentObj){
         }
     });
 
-
     backgroundElements_.forEach(function(elem){
         elem.on('mousedown', function(event){
             //clear previous mouse multi-select gesture state
@@ -530,6 +524,13 @@ function attachHandlersOnBackground(backgroundElements_, svgParentObj){
                     }
                 });
             })
+        });
+
+        elem.on('dblclick', function(event){
+            var svgXY = svgMouseCoord(event);
+            // svgXY = {x: event.clientX, y: event.clientY};
+            var pitchPos = svgXYtoPitchPosQuant(svgXY.x, svgXY.y);
+            addNote(pitchPos.pitch, pitchPos.position, 4/noteSubDivision, false);
         }); 
     });
 }
@@ -642,7 +643,7 @@ function attachHandlersOnElement(noteElement, svgParentObj){
                 selectedNoteIds.forEach(function(id){
                     notes[id].elem.x(noteModStartReference[id].x + xMove);
                     notes[id].elem.y(noteModStartReference[id].y + yMove);
-                    notes[id].label.x(noteModStartReference[id].x + xMove + 10);
+                    notes[id].label.x(noteModStartReference[id].x + xMove + textDev);
                     notes[id].label.y(noteModStartReference[id].y + yMove);
                     notes[id].label.text(svgYToPitchString(notes[id].label.y()));
                     updateNoteInfo(notes[id], true);
