@@ -448,7 +448,7 @@ function initializeNoteModificationAction(element){
     selectedNoteIds = Array.from(selectedElements).map(elem => elem.noteId);
     nonSelectedModifiedNotes.clear();
     if(!selectedNoteIds.includes(element.noteId)) {
-        clearNoteSelection();
+        if(!shiftKeyDown) clearNoteSelection();
         selectNote(element);
         selectedNoteIds = [element.noteId];
     }
@@ -689,12 +689,13 @@ function attachHandlersOnElement(noteElement, svgParentObj){
         })
     });
 
-    noteElement.on('click', function(event){
-        if(!this.motionOnDrag) {
-            if(!shiftKeyDown) clearNoteSelection();
-            selectNote(this);
-        }
-    });
+    // noteElement.on('click', function(event){
+    //     if(!this.motionOnDrag) {
+    //         if(!shiftKeyDown) clearNoteSelection();
+    //         console.log("shiftKeyDown on click", shiftKeyDown);
+    //         selectNote(this);
+    //     }
+    // });
 
     noteElement.on('dblclick', function(event){
         deleteNotes([this]);
