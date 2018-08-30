@@ -683,6 +683,7 @@ function attachHandlersOnElement(noteElement, svgParentObj){
                 } else { 
                     notes[id].elem.width(oldNoteVals.width - xDevRaw);
                     notes[id].elem.x(oldNoteVals.x + xDevRaw);
+                    notes[id].label.x(oldNoteVals.x + xDevRaw);
                 }
                 updateNoteInfo(notes[id], true);
             });
