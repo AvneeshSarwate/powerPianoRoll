@@ -179,16 +179,19 @@ function drawBackground() {
     });
 }
 
+var pitchStrings = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 //duration is number of quarter notes, pitch is 0-indexed MIDI
 function addNote(pitch, position, duration, isHistoryManipulation){
     var rect = svgRoot.rect(duration*quarterNoteWidth, noteHeight).move(position*quarterNoteWidth, (127-pitch)*noteHeight).fill(noteColor);;
     rect.noteId = noteCount;
     rect.selectize({rotationPoint: false, points:["r", "l"]}).resize();
+    var text = svgRoot.text(svgYToPitchString(rect.y())).move(position*quarterNoteWidth + 10, (127-pitch)*noteHeight).style('pointer-events', 'none');
     attachHandlersOnElement(rect, svgRoot);
     notes[noteCount] = {
         elem: rect, 
-        info: {pitch, position, duration}
+        info: {pitch, position, duration},
+        label: text
     }
     noteCount++;
     if(!isHistoryManipulation){
@@ -200,6 +203,7 @@ function addNote(pitch, position, duration, isHistoryManipulation){
 function deleteElement(elem){
     elem.selectize(false);
     elem.remove();
+    notes[elem.noteId].label.remove();
 }
 
 function deleteNotes(elements){
@@ -237,6 +241,9 @@ function updateNoteElement(note){
     note.elem.x(note.info.position * quarterNoteWidth);
     note.elem.y((127-note.info.pitch)*noteHeight);
     note.elem.width(note.info.duration*quarterNoteWidth);
+    note.label.x(note.info.position * quarterNoteWidth + 10);
+    note.label.y((127-note.info.pitch)*noteHeight);
+    note.label.text(svgYToPitchString(note.label.y()));
 }
 
 
@@ -396,11 +403,19 @@ function restoreNoteState(histIndex){
     });
 }
 
+function svgYToPitchString(yVal){
+    var pitch = svgYtoPitch(yVal);
+    return pitchStrings[pitch%12] + (Math.floor(pitch/12)-2);
+}
 
 //function that snapes note svg elements into place
 function snapPositionToGrid(elem, xSize, ySize){
     elem.x(Math.round(elem.x()/xSize) * xSize);
     elem.y(Math.round(elem.y()/ySize) * ySize); //because we're using lines instead of rectangles
+    var label = notes[elem.noteId].label;
+    label.x(Math.round(elem.x()/xSize) * xSize + 10);
+    label.y(Math.round(elem.y()/ySize) * ySize); //because we're using lines instead of rectangles
+    label.text(svgYToPitchString(label.y()));
 }
 
 // Resets the "start" positions/sizes of notes for multi-select transformations to current position/sizes
@@ -558,11 +573,13 @@ function executeOverlapVisibleChanges(){
                             if(count++ < 10) console.log(nonSelectedModifiedNotes, currentlyModifiedNotes, notesToRestore);
                             currentlyModifiedNotes.add(note.elem.noteId);
                             note.elem.show();
+                            note.label.show();
                             note.elem.width((selectedNote.info.position - note.info.position)*quarterNoteWidth);
                         //deleting the non-selected note
                         } else if(selectedNote.info.position <= note.info.position && note.info.position < selectedNote.info.position+selectedNote.info.duration) {
                             currentlyModifiedNotes.add(note.elem.noteId);
                             note.elem.hide();
+                            note.label.hide();
                         }
                     }
                 }
@@ -625,6 +642,9 @@ function attachHandlersOnElement(noteElement, svgParentObj){
                 selectedNoteIds.forEach(function(id){
                     notes[id].elem.x(noteModStartReference[id].x + xMove);
                     notes[id].elem.y(noteModStartReference[id].y + yMove);
+                    notes[id].label.x(noteModStartReference[id].x + xMove + 10);
+                    notes[id].label.y(noteModStartReference[id].y + yMove);
+                    notes[id].label.text(svgYToPitchString(notes[id].label.y()));
                     updateNoteInfo(notes[id], true);
                 });
                 executeOverlapVisibleChanges();
