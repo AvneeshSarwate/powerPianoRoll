@@ -29,6 +29,7 @@ How note-state <-> note-svg-elements is handled is still TBD.
 - get to ableton parity with regards to 
     - X selected notes and then moving/resizing a non-sected note 
     - POSTPONED - handle drag quantization to be ableton like
+        - handle drag quantizing so that clicked note snaps to grid when moved large distances
     - need to handle out-of-bounds dragging
     - handling overlaps on resizing, drag and doubleclick-to-add-note
         - resizing quantization should be triggered once the end nears a note-section border. currently it quantizes
@@ -37,7 +38,7 @@ How note-state <-> note-svg-elements is handled is still TBD.
           and if they intersect with the end of "other" notes, the "other" notes are truncated.
           - The exception is if a selected note is resized into another selected note, in which case the resizing is 
             truncated at the start of the next selected note
-- implement showing note names on notes
+- X implement showing note names on notes
 - implement cursor and cut/copy/paste
 - implement moving highlighted notes by arrow click 
 - figure out floating note names on side and time-values on top 
@@ -54,6 +55,21 @@ How note-state <-> note-svg-elements is handled is still TBD.
 
 */
 
+
+/*
+General organization - 
+Look at attachHandlersOnBackground to see how notes are drawn/created.
+Look at attachHandlersOnElement to see how notes can be moved and modified. 
+
+Basic strategy for implementing multi-note modifications - 
+- Define the "target" element (the one the mouse gestures are happening on) and
+  the other "selected" elements. 
+- Calulate the mouse motion/deviation from the mousedown point on the target element
+- Use this mouse deviation info to control movement/resizing of all selected elements
+
+
+
+*/
 
 
 var svgRoot; //the svg root element
@@ -657,10 +673,12 @@ function attachHandlersOnElement(noteElement, svgParentObj){
                 }
                 var yMove = quant(svgXY.y, noteHeight) - quant(mouseMoveRoot.svgY, noteHeight);
                 selectedNoteIds.forEach(function(id){
-                    notes[id].elem.x(noteModStartReference[id].x + xMove);
-                    notes[id].elem.y(noteModStartReference[id].y + yMove);
-                    notes[id].label.x(noteModStartReference[id].x + xMove + textDev);
-                    notes[id].label.y(noteModStartReference[id].y + yMove);
+                    var noteModStart = noteModStartReference[id];
+                    //postponed - make note quantization more like ableton's on drag
+                    notes[id].elem.x(noteModStart.x + xMove);
+                    notes[id].elem.y(noteModStart.y + yMove);
+                    notes[id].label.x(noteModStart.x + xMove + textDev);
+                    notes[id].label.y(noteModStart.y + yMove);
                     notes[id].label.text(svgYToPitchString(notes[id].label.y()));
                     updateNoteInfo(notes[id], true);
                 });
@@ -694,6 +712,7 @@ function attachHandlersOnElement(noteElement, svgParentObj){
                 //inProgress - control the resizing/overlap of the selected elements here and you don't 
                 //have to worry about them in executeOverlapVisibleChanges()
 
+                //inProgress - quantize long drags
                 if(isEndChange) { 
                     notes[id].elem.width(oldNoteVals.width + xDevRaw);
                 } else { 
