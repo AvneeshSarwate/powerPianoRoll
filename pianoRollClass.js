@@ -68,6 +68,7 @@ Basic strategy for implementing multi-note modifications -
 - Use this mouse deviation info to control movement/resizing of all selected elements
 
 
+TODO generally - clean up usage of variable_ type functional arguments that are duplicates of class variables
 
 */
 
@@ -89,124 +90,124 @@ class PianoRoll {
 
         //elements selected by a mouse-region highlight
         this.selectedElements = new Set();
-        selectedNoteIds = []; //IDs of selected notes saved separtely to speed up multi drag/resize performance
+        this.selectedNoteIds = []; //IDs of selected notes saved separtely to speed up multi drag/resize performance
 
-        selectRect; //the variable holding the mouse-region highlight svg rectabgle 
+        this.selectRect; //the variable holding the mouse-region highlight svg rectabgle 
 
         //svg elements in the pianoRoll background
-        backgroundElements;
+        this.backgroundElements;
 
 
 
-        quarterNoteWidth = 120; //in pixels
-        noteHeight = 20; //in pixels
-        whiteNotes = [0, 2, 4, 5, 7, 9, 11];
-        noteSubDivision = 16; //where to draw lines and snap to grid
-        timeSignature = 4/4; //b
-        numMeasures = 100;
+        this.quarterNoteWidth = 120; //in pixels
+        this.noteHeight = 20; //in pixels
+        this.whiteNotes = [0, 2, 4, 5, 7, 9, 11];
+        this.noteSubDivision = 16; //where to draw lines and snap to grid
+        this.timeSignature = 4/4; //b
+        this.numMeasures = 100;
         // Every quarter note region of the background will be alternately colored.
-        // In ableton this changes on zoom level
-        sectionColoringDivision = 4; 
-        NUM_MIDI_NOTES = 128;
+        // In ableton this changes on zoom level - TODO - is this even used? Could ignore this behavior
+        this.sectionColoringDivision = 4; 
+        this.NUM_MIDI_NOTES = 128;
 
         //snap to grid quantization sizes
-        xSnap = 1; //x-variable will change depending on user quantization choice, or be vertLineSpace as calculated below
-        ySnap = noteHeight;
+        this.xSnap = 1; //x-variable will change depending on user quantization choice, or be vertLineSpace as calculated below
+        this.ySnap = this.noteHeight;
 
-        backgroundColor1 = '#ddd';
-        backgroundColor2 = '#bbb';
-        noteColor = '#f23';
-        selectedNoteColor = '#2ee'
-        thickLineWidth = 1.8;
-        thinLineWidth = 1;
-        viewportHeight = 720;
-        viewportWidth = 1280;
-        maxZoom;
-        noteCount = 0;
+        this.backgroundColor1 = '#ddd';
+        this.backgroundColor1 = '#bbb';
+        this.noteColor = '#f23';
+        this.selectedNoteColor = '#2ee'
+        this.thickLineWidth = 1.8;
+        this.thinLineWidth = 1;
+        this.viewportHeight = 720;
+        this.viewportWidth = 1280;
+        this.maxZoom;
+        this.noteCount = 0;
         // Create an SVGPoint for future math
-        refPt; 
-        shiftKeyDown = false;
+        this.refPt; 
+        this.shiftKeyDown = false;
 
 
-        historyList = [[]]; //list of states. upon an edit, the end of historyList is always the current state 
+        this.historyList = [[]]; //list of states. upon an edit, the end of historyList is always the current state 
 
         // How far away from end of array (e.g, how many redos available).
         //  historyListIndex  is always the index of the current state in historyList
-        historyListIndex = 0; 
+        this.historyListIndex = 0; 
 
-        pianoRollHeight;
-        pianoRollWidth;
+        this.pianoRollHeight;
+        this.pianoRollWidth;
 
         //variables relating to note-name labels
-        pitchStrings = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-        textDev = 4;
+        this.pitchStrings = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        this.textDev = 4;
 
         //variables relating to mouse movement state (scroll, zoom, resize, drag, etc)
-        mouseScrollActive = false;
-        mouseZoomActive = false;
-        mouseMoveRootNeedsReset = true;
-        mouseMoveRoot = {x: -1, y: -1};
+        this.mouseScrollActive = false;
+        this.mouseZoomActive = false;
+        this.mouseMoveRootNeedsReset = true;
+        this.mouseMoveRoot = {x: -1, y: -1};
 
         //notes that are modified during drag or resize because they overlap with selected notes
-        nonSelectedModifiedNotes = new Set();
-        count = 0; //some debugging variable
+        this.nonSelectedModifiedNotes = new Set();
+        this.count = 0; //some debugging variable
 
-        draggingActive = false;
-        quantDragActivated = false;
-        dragTarget = null;
+        this.draggingActive = false;
+        this.quantDragActivated = false;
+        this.dragTarget = null;
 
-        resizingActive = false;
-        quantResizingActivated = false;
-        resizeTarget = null;
+        this.resizingActive = false;
+        this.quantResizingActivated = false;
+        this.resizeTarget = null;
     }
 
     drawBackground() {
-        pianoRollHeight = noteHeight * NUM_MIDI_NOTES;
-        var pulsesPerMeasure = timeSignature * 4;
-        pianoRollWidth = quarterNoteWidth * pulsesPerMeasure * numMeasures;
-        var numVertLines = numMeasures * pulsesPerMeasure * (noteSubDivision / 4);
-        var vertLineSpace = pianoRollWidth / numVertLines;
-        xSnap = vertLineSpace;
-        var measureWidth = quarterNoteWidth*pulsesPerMeasure;
-        this.svgRoot = SVG('drawing').attr('id', 'pianoRollSVG').size(viewportWidth, viewportHeight);
-        refPt = this.svgRoot.node.createSVGPoint();
-        maxZoom = viewportHeight / pianoRollHeight;
+        this.pianoRollHeight = this.noteHeight * this.NUM_MIDI_NOTES;
+        var pulsesPerMeasure = this.timeSignature * 4;
+        this.pianoRollWidth = this.quarterNoteWidth * pulsesPerMeasure * this.numMeasures;
+        var numVertLines = this.numMeasures * pulsesPerMeasure * (this.noteSubDivision / 4);
+        var vertLineSpace = this.pianoRollWidth / numVertLines;
+        this.xSnap = vertLineSpace;
+        var measureWidth = this.quarterNoteWidth*pulsesPerMeasure;
+        this.svgRoot = SVG('drawing').attr('id', 'pianoRollSVG').size(this.viewportWidth, this.viewportHeight);
+        this.refPt = this.svgRoot.node.createSVGPoint();
+        this.maxZoom = this.viewportHeight / this.pianoRollHeight;
 
-        backgroundElements = new Set();
-        for(var i = 0; i < numMeasures; i++){
-            var color = i % 2 == 0 ? backgroundColor1 : backgroundColor2;
-            var panel = this.svgRoot.rect(measureWidth, pianoRollHeight).move(i*measureWidth, 0).fill(color);
-            backgroundElements.add(panel);
+        this.backgroundElements = new Set();
+        for(var i = 0; i < this.numMeasures; i++){
+            var color = i % 2 == 0 ? this.backgroundColor1 : this.backgroundColor1;
+            var panel = this.svgRoot.rect(measureWidth, this.pianoRollHeight).move(i*measureWidth, 0).fill(color);
+            this.backgroundElements.add(panel);
         }
         for(var i = 1; i < numVertLines; i++){
             var xPos = i*vertLineSpace;
-            var strokeWidth = xPos % quarterNoteWidth == 0 ? thickLineWidth : thinLineWidth;
-            var line = this.svgRoot.line(xPos, 0, xPos, pianoRollHeight).stroke({width: strokeWidth});
-            backgroundElements.add(line);
+            var strokeWidth = xPos % this.quarterNoteWidth == 0 ? this.thickLineWidth : this.thinLineWidth;
+            var line = this.svgRoot.line(xPos, 0, xPos, this.pianoRollHeight).stroke({width: strokeWidth});
+            this.backgroundElements.add(line);
         }
-        for(var i = 1; i < NUM_MIDI_NOTES; i++){
-            var line = this.svgRoot.line(0, i*noteHeight, pianoRollWidth, i*noteHeight).stroke({width: thinLineWidth});
-            backgroundElements.add(line);
+        for(var i = 1; i < this.NUM_MIDI_NOTES; i++){
+            var line = this.svgRoot.line(0, i*this.noteHeight, this.pianoRollWidth, i*this.noteHeight).stroke({width: this.thinLineWidth});
+            this.backgroundElements.add(line);
         }
     }
 
 
     //duration is number of quarter notes, pitch is 0-indexed MIDI
     addNote(pitch, position, duration, isHistoryManipulation){
-        var rect = this.svgRoot.rect(duration*quarterNoteWidth, noteHeight).move(position*quarterNoteWidth, (127-pitch)*noteHeight).fill(noteColor);;
-        rect.noteId = noteCount;
+        var rect = this.svgRoot.rect(duration*this.quarterNoteWidth, this.noteHeight).move(position*this.quarterNoteWidth, (127-pitch)*this.noteHeight).fill(this.noteColor);;
+        rect.noteId = this.noteCount;
         rect.selectize({rotationPoint: false, points:["r", "l"]}).resize();
         var text = this.svgRoot.text(svgYToPitchString(rect.y()))
             .font({size: 14})
-            .move(position*quarterNoteWidth + textDev, (127-pitch)*noteHeight)
+            .move(position*this.quarterNoteWidth + this.textDev, (127-pitch)*this.noteHeight)
             .style('pointer-events', 'none');
         attachHandlersOnElement(rect, this.svgRoot);
-        this.notes[noteCount] = {
+        this.notes[this.noteCount] = {
             elem: rect, 
             info: {pitch, position, duration},
             label: text
         }
-        noteCount++;
+        this.noteCount++;
         if(!isHistoryManipulation){
             snapshotNoteState();
         }
@@ -233,7 +234,7 @@ class PianoRoll {
         if(note.elem.visible()) {
             var pitch = svgYtoPitch(note.elem.y());
             var position = svgXtoPosition(note.elem.x());
-            var duration = note.elem.width()/quarterNoteWidth;
+            var duration = note.elem.width()/this.quarterNoteWidth;
             note.info = {pitch, position, duration};
         } else {
             deleteElement(note.elem);
@@ -251,30 +252,30 @@ class PianoRoll {
     //update note SVG element from underlying info change
     updateNoteElement(note){
         note.elem.show();
-        note.elem.x(note.info.position * quarterNoteWidth);
-        note.elem.y((127-note.info.pitch)*noteHeight);
-        note.elem.width(note.info.duration*quarterNoteWidth);
-        note.label.x(note.info.position * quarterNoteWidth + textDev);
-        note.label.y((127-note.info.pitch)*noteHeight);
+        note.elem.x(note.info.position * this.quarterNoteWidth);
+        note.elem.y((127-note.info.pitch)*this.noteHeight);
+        note.elem.width(note.info.duration*this.quarterNoteWidth);
+        note.label.x(note.info.position * this.quarterNoteWidth + this.textDev);
+        note.label.y((127-note.info.pitch)*this.noteHeight);
         note.label.text(svgYToPitchString(note.label.y()));
     }
 
     // Get point in global SVG space from mousemove event
     svgMouseCoord(evt){
-      refPt.x = evt.clientX; 
-      refPt.y = evt.clientY;
-      return refPt.matrixTransform(this.svgRoot.node.getScreenCTM().inverse());
+      this.refPt.x = evt.clientX; 
+      this.refPt.y = evt.clientY;
+      return this.refPt.matrixTransform(this.svgRoot.node.getScreenCTM().inverse());
     }
 
-    svgYtoPitch(yVal) {return 127 - yVal/noteHeight;}
-    svgXtoPosition(xVal) {return xVal/quarterNoteWidth}
+    svgYtoPitch(yVal) {return 127 - yVal/this.noteHeight;}
+    svgXtoPosition(xVal) {return xVal/this.quarterNoteWidth}
     svgXYtoPitchPos(xVal, yVal){
-        return {pitch: 127 - yVal/noteHeight, position: xVal/quarterNoteWidth};
+        return {pitch: 127 - yVal/this.noteHeight, position: xVal/this.quarterNoteWidth};
     }
     svgXYtoPitchPosQuant(xVal, yVal) {
-        var notesPerQuarterNote = noteSubDivision/4;
-        var rawPosition = xVal / quarterNoteWidth;
-        return {pitch: 127 - Math.floor(yVal/noteHeight), position: Math.floor(rawPosition * notesPerQuarterNote)/notesPerQuarterNote};
+        var notesPerQuarterNote = this.noteSubDivision/4;
+        var rawPosition = xVal / this.quarterNoteWidth;
+        return {pitch: 127 - Math.floor(yVal/this.noteHeight), position: Math.floor(rawPosition * notesPerQuarterNote)/notesPerQuarterNote};
     }
 
 
@@ -289,7 +290,7 @@ class PianoRoll {
     resetMouseMoveRoot(event){
         var vb = this.svgRoot.viewbox();
         var svgXY = svgMouseCoord(event);
-        mouseMoveRoot = {
+        this.mouseMoveRoot = {
             mouseX: event.clientX,
             mouseY: event.clientY,
             svgX: svgXY.x,
@@ -300,42 +301,42 @@ class PianoRoll {
             vbHeight: vb.height,
             zoom: vb.zoom
         };
-        mouseMoveRootNeedsReset = false;
+        this.mouseMoveRootNeedsReset = false;
     }
 
     mouseScrollHandler(event){
-        if(mouseMoveRootNeedsReset) resetMouseMoveRoot(event);
-        if(mouseScrollActive){
-            var mouseDetla = getMouseDelta(event, mouseMoveRoot);
+        if(this.mouseMoveRootNeedsReset) resetMouseMoveRoot(event);
+        if(this.mouseScrollActive){
+            var mouseDetla = getMouseDelta(event, this.mouseMoveRoot);
             var boundVal = (n, l, h) => Math.min(h, Math.max(l, n));
             
             //inverted scrolling
-            var scrollFactor = 1/mouseMoveRoot.zoom;
+            var scrollFactor = 1/this.mouseMoveRoot.zoom;
             var newVBPos = {
-                x: boundVal(mouseMoveRoot.vbX - mouseDetla.x * scrollFactor, 0, pianoRollWidth - mouseMoveRoot.vbWidth),
-                y: boundVal(mouseMoveRoot.vbY - mouseDetla.y * scrollFactor, 0, pianoRollHeight - mouseMoveRoot.vbHeight)
+                x: boundVal(this.mouseMoveRoot.vbX - mouseDetla.x * scrollFactor, 0, this.pianoRollWidth - this.mouseMoveRoot.vbWidth),
+                y: boundVal(this.mouseMoveRoot.vbY - mouseDetla.y * scrollFactor, 0, this.pianoRollHeight - this.mouseMoveRoot.vbHeight)
             };
-            this.svgRoot.viewbox(newVBPos.x, newVBPos.y, mouseMoveRoot.vbWidth, mouseMoveRoot.vbHeight);
+            this.svgRoot.viewbox(newVBPos.x, newVBPos.y, this.mouseMoveRoot.vbWidth, this.mouseMoveRoot.vbHeight);
         }
     }
 
     mouseZoomHandler(event){
-        if(mouseMoveRootNeedsReset) resetMouseMoveRoot(event);
-        if(mouseZoomActive){
-            var mouseDetla = getMouseDelta(event, mouseMoveRoot);
+        if(this.mouseMoveRootNeedsReset) resetMouseMoveRoot(event);
+        if(this.mouseZoomActive){
+            var mouseDetla = getMouseDelta(event, this.mouseMoveRoot);
             var boundVal = (n, l, h) => Math.min(h, Math.max(l, n));
 
-            var zoomChange = (4**(mouseDetla.y/mouseMoveRoot.zoom / mouseMoveRoot.vbHeight));
-            var zoomFactor = mouseMoveRoot.zoom * zoomChange;
-            if(zoomFactor < maxZoom) return;
+            var zoomChange = (4**(mouseDetla.y/this.mouseMoveRoot.zoom / this.mouseMoveRoot.vbHeight));
+            var zoomFactor = this.mouseMoveRoot.zoom * zoomChange;
+            if(zoomFactor < this.maxZoom) return;
             
-            var svgMouseVBOffsetX = mouseMoveRoot.svgX - mouseMoveRoot.vbX;
-            var svgMouseVBOffsetY = mouseMoveRoot.svgY - mouseMoveRoot.vbY;
-            var newWidth = mouseMoveRoot.vbWidth/zoomChange;
-            var newHeight = mouseMoveRoot.vbHeight/zoomChange;
+            var svgMouseVBOffsetX = this.mouseMoveRoot.svgX - this.mouseMoveRoot.vbX;
+            var svgMouseVBOffsetY = this.mouseMoveRoot.svgY - this.mouseMoveRoot.vbY;
+            var newWidth = this.mouseMoveRoot.vbWidth/zoomChange;
+            var newHeight = this.mouseMoveRoot.vbHeight/zoomChange;
             var newVBPos = {
-                x: boundVal(mouseMoveRoot.svgX - svgMouseVBOffsetX/zoomChange, 0, pianoRollWidth - newWidth),
-                y: boundVal(mouseMoveRoot.svgY - svgMouseVBOffsetY/zoomChange, 0, pianoRollHeight - newHeight)
+                x: boundVal(this.mouseMoveRoot.svgX - svgMouseVBOffsetX/zoomChange, 0, this.pianoRollWidth - newWidth),
+                y: boundVal(this.mouseMoveRoot.svgY - svgMouseVBOffsetY/zoomChange, 0, this.pianoRollHeight - newHeight)
             };
 
             this.svgRoot.viewbox(newVBPos.x, newVBPos.y, newWidth, newHeight);
@@ -343,15 +344,15 @@ class PianoRoll {
     }
 
     keydownHandler(event){
-        if(event.key == "Shift") shiftKeyDown = true; 
+        if(event.key == "Shift") this.shiftKeyDown = true; 
         if(event.ctrlKey && !event.altKey){
-            mouseMoveRootNeedsReset = true;
-            mouseScrollActive = true;
+            this.mouseMoveRootNeedsReset = true;
+            this.mouseScrollActive = true;
             $('#drawing').mousemove(mouseScrollHandler);
         }
         if(event.altKey && !event.ctrlKey){
-            mouseMoveRootNeedsReset = true;
-            mouseZoomActive = true;
+            this.mouseMoveRootNeedsReset = true;
+            this.mouseZoomActive = true;
             $('#drawing').mousemove(mouseZoomHandler);
         }
         if(event.key == "Backspace"){
@@ -359,51 +360,51 @@ class PianoRoll {
             event.stopPropagation();
         }
         if(event.key === "z" && event.metaKey){
-            if(shiftKeyDown) executeRedo();
+            if(this.shiftKeyDown) executeRedo();
             else executeUndo();
         }
     }
 
     keyupHandler(event){
-        if(event.key == "Shift") shiftKeyDown = false; 
-        if(!event.ctrlKey && mouseScrollActive) {
-            mouseScrollActive = false;
+        if(event.key == "Shift") this.shiftKeyDown = false; 
+        if(!event.ctrlKey && this.mouseScrollActive) {
+            this.mouseScrollActive = false;
             $('#drawing').off('mousemove');
         }
-        if(!event.altKey && mouseZoomActive) {
-            mouseZoomActive = false;
+        if(!event.altKey && this.mouseZoomActive) {
+            this.mouseZoomActive = false;
             $('#drawing').off('mousemove');
         }
     }
 
     snapshotNoteState(){
-        console.log("snapshot", historyList.length, historyListIndex);
+        console.log("snapshot", this.historyList.length, this.historyListIndex);
         var noteState = Object.values(this.notes).map(note => note.info);
-        if(historyListIndex == historyList.length-1){
-            historyList.push(noteState);
+        if(this.historyListIndex == this.historyList.length-1){
+            this.historyList.push(noteState);
         } else {
-            historyList = historyList.splice(0, historyListIndex+1);
-            historyList.push(noteState);
+            this.historyList = this.historyList.splice(0, this.historyListIndex+1);
+            this.historyList.push(noteState);
         }
-        historyListIndex++;
+        this.historyListIndex++;
     }
 
     executeUndo() {
-        if(historyListIndex == 0) return; //always start with an "no-notes" state
-        historyListIndex--;
-        restoreNoteState(historyListIndex);
+        if(this.historyListIndex == 0) return; //always start with an "no-notes" state
+        this.historyListIndex--;
+        restoreNoteState(this.historyListIndex);
     }
 
     executeRedo() {
-        if(historyListIndex == historyList.length-1) return;
-        historyListIndex++;
-        restoreNoteState(historyListIndex);
+        if(this.historyListIndex == this.historyList.length-1) return;
+        this.historyListIndex++;
+        restoreNoteState(this.historyListIndex);
     }
 
     restoreNoteState(histIndex){
         Object.values(this.notes).forEach(note => deleteElement(note.elem));
         this.notes = {};
-        var noteState = historyList[histIndex];
+        var noteState = this.historyList[histIndex];
         noteState.forEach(function(noteInfo){
             addNote(noteInfo.pitch, noteInfo.position, noteInfo.duration, true);
         });
@@ -411,7 +412,7 @@ class PianoRoll {
 
     svgYToPitchString(yVal){
         var pitch = svgYtoPitch(yVal);
-        return pitchStrings[pitch%12] + (Math.floor(pitch/12)-2);
+        return this.pitchStrings[pitch%12] + (Math.floor(pitch/12)-2);
     }
 
     //function that snapes note svg elements into place
@@ -419,7 +420,7 @@ class PianoRoll {
         elem.x(Math.round(elem.x()/xSize) * xSize);
         elem.y(Math.round(elem.y()/ySize) * ySize); //because we're using lines instead of rectangles
         var label = this.notes[elem.noteId].label;
-        label.x(Math.round(elem.x()/xSize) * xSize + textDev);
+        label.x(Math.round(elem.x()/xSize) * xSize + this.textDev);
         label.y(Math.round(elem.y()/ySize) * ySize); //because we're using lines instead of rectangles
         label.text(svgYToPitchString(label.y()));
     }
@@ -451,60 +452,60 @@ class PianoRoll {
     }
 
     initializeNoteModificationAction(element){
-        selectedNoteIds = Array.from(this.selectedElements).map(elem => elem.noteId);
-        nonSelectedModifiedNotes.clear();
-        if(!selectedNoteIds.includes(element.noteId)) {
-            if(!shiftKeyDown) clearNoteSelection();
+        this.selectedNoteIds = Array.from(this.selectedElements).map(elem => elem.noteId);
+        this.nonSelectedModifiedNotes.clear();
+        if(!this.selectedNoteIds.includes(element.noteId)) {
+            if(!this.shiftKeyDown) clearNoteSelection();
             selectNote(element);
-            selectedNoteIds = [element.noteId];
+            this.selectedNoteIds = [element.noteId];
         }
         populateSpatialNoteTracker();
-        refreshNoteModStartReference(selectedNoteIds);
+        refreshNoteModStartReference(this.selectedNoteIds);
     }
 
 
     updateNoteStateOnModificationCompletion(){
-        refreshNoteModStartReference(selectedNoteIds);
-        var changedNotes = selectedNoteIds.map(id => this.notes[id]).concat(Array.from(nonSelectedModifiedNotes).map(id => this.notes[id]));
+        refreshNoteModStartReference(this.selectedNoteIds);
+        var changedNotes = this.selectedNoteIds.map(id => this.notes[id]).concat(Array.from(this.nonSelectedModifiedNotes).map(id => this.notes[id]));
         updateNoteInfoMultiple(changedNotes);
     }
 
 
     endSelect(){
-        selectRect.draw('stop', event);
-        selectRect.remove();
+        this.selectRect.draw('stop', event);
+        this.selectRect.remove();
         this.svgRoot.off("mousemove");
-        selectRect = null;
+        this.selectRect = null;
     }
 
     endDrag(){
-        draggingActive = false;
-        quantDragActivated = false;
+        this.draggingActive = false;
+        this.quantDragActivated = false;
 
         this.svgRoot.off("mousemove");
 
         //used to prevent click events from triggering after drag
-        dragTarget.motionOnDrag = checkIfNoteMovedSignificantly(dragTarget, 3);
-        if(!dragTarget.motionOnDrag) return;
+        this.dragTarget.motionOnDrag = checkIfNoteMovedSignificantly(this.dragTarget, 3);
+        if(!this.dragTarget.motionOnDrag) return;
 
         //refresh the startReference so the next multi-select-transform works right
         updateNoteStateOnModificationCompletion();
-        dragTarget = null;
+        this.dragTarget = null;
     }
 
     endResize(){
-        resizingActive= false;
-        quantResizingActivated = false;
+        this.resizingActive= false;
+        this.quantResizingActivated = false;
 
         this.svgRoot.off("mousemove");
 
-        if(!checkIfNoteResizedSignificantly(resizeTarget, 3)) return;
+        if(!checkIfNoteResizedSignificantly(this.resizeTarget, 3)) return;
         console.log("resize done");
 
-        resizeTarget.resize();
+        this.resizeTarget.resize();
 
         updateNoteStateOnModificationCompletion();
-        resizeTarget = null;
+        this.resizeTarget = null;
     }
 
     startDragSelection(){
@@ -512,16 +513,16 @@ class PianoRoll {
         clearNoteSelection();
 
         //restart new mouse multi-select gesture
-        selectRect = this.svgRoot.rect().fill('#008').attr('opacity', 0.25);
-        selectRect.draw(event);
+        this.selectRect = this.svgRoot.rect().fill('#008').attr('opacity', 0.25);
+        this.selectRect.draw(event);
         this.svgRoot.on("mousemove", function(event){
             
             //select this.notes which intersect with the selectRect (mouse selection area)
             Object.keys(this.notes).forEach(function(noteId){
                 var noteElem = this.notes[noteId].elem;
                 
-                // var intersecting = svgParentObj.node.checkIntersection(noteElem.node, selectRect.node.getBBox());
-                var intersecting = selectRectIntersection(selectRect, noteElem);
+                // var intersecting = svgParentObj.node.checkIntersection(noteElem.node, this.selectRect.node.getBBox());
+                var intersecting = selectRectIntersection(this.selectRect, noteElem);
                 if(intersecting) {
                     selectNote(noteElem);                        
                 } else {
@@ -538,13 +539,13 @@ class PianoRoll {
         // bounds of the root svg element or browser
         window.addEventListener('mouseup', function(event){
             //end a multi-select drag gesture
-            if(selectRect) {
+            if(this.selectRect) {
                 endSelect();
             }
-            if(draggingActive){
+            if(this.draggingActive){
                 endDrag();
             } 
-            if(resizingActive){
+            if(this.resizingActive){
                 endResize();
             }
         });
@@ -557,7 +558,7 @@ class PianoRoll {
             elem.on('dblclick', function(event){
                 var svgXY = svgMouseCoord(event);
                 var pitchPos = svgXYtoPitchPosQuant(svgXY.x, svgXY.y);
-                addNote(pitchPos.pitch, pitchPos.position, 4/noteSubDivision, false);
+                addNote(pitchPos.pitch, pitchPos.position, 4/this.noteSubDivision, false);
             }); 
         });
     }
@@ -595,11 +596,11 @@ class PianoRoll {
 
                             //truncating the end of the non-selected note
                             if(note.info.position < selectedNote.info.position && selectedNote.info.position < note.info.position+note.info.duration) {
-                                if(count++ < 10) console.log(nonSelectedModifiedNotes, currentlyModifiedNotes, notesToRestore);
+                                if(this.count++ < 10) console.log(this.nonSelectedModifiedNotes, currentlyModifiedNotes, notesToRestore);
                                 currentlyModifiedNotes.add(note.elem.noteId);
                                 note.elem.show();
                                 note.label.show();
-                                note.elem.width((selectedNote.info.position - note.info.position)*quarterNoteWidth);
+                                note.elem.width((selectedNote.info.position - note.info.position)*this.quarterNoteWidth);
                             //deleting the non-selected note
                             } else if(selectedNote.info.position <= note.info.position && note.info.position < selectedNote.info.position+selectedNote.info.duration) {
                                 currentlyModifiedNotes.add(note.elem.noteId);
@@ -611,9 +612,9 @@ class PianoRoll {
                 });
             }
         });
-        var notesToRestore = nonSelectedModifiedNotes.difference(currentlyModifiedNotes);
+        var notesToRestore = this.nonSelectedModifiedNotes.difference(currentlyModifiedNotes);
         notesToRestore.forEach(id => updateNoteElement(this.notes[id]));
-        nonSelectedModifiedNotes = currentlyModifiedNotes;
+        this.nonSelectedModifiedNotes = currentlyModifiedNotes;
     }
 
 
@@ -632,35 +633,40 @@ class PianoRoll {
          * the other selected elements
          */
 
+
+        //TODO - will need to resolve "this" for eventTarget vs PianoRoll instance in all of these handlers
+        //     - maybe just have "var pianoRoll = this" defined in the scope of this comment, and use that as
+        //     - the reference in the hanlders? then "this" refers to the event-target in the handler
+
         noteElement.on('point', function(event){ console.log("select", event)});
 
         noteElement.on('mousedown', function(event){
-            if(!mouseScrollActive && !mouseZoomActive) {
+            if(!this.mouseScrollActive && !this.mouseZoomActive) {
                 resetMouseMoveRoot(event);
                 initializeNoteModificationAction(this);
-                dragTarget = this;
-                draggingActive = true;
+                this.dragTarget = this;
+                this.draggingActive = true;
                 svgParentObj.on("mousemove", function(event){
                     var svgXY = svgMouseCoord(event);
                     var xMove;
-                    var xDevRaw = svgXY.x - mouseMoveRoot.svgX;
-                    var quantWidth = quarterNoteWidth * (4/noteSubDivision);
+                    var xDevRaw = svgXY.x - this.mouseMoveRoot.svgX;
+                    var quantWidth = this.quarterNoteWidth * (4/this.noteSubDivision);
                     var quant = (val, qVal) => Math.floor(val/qVal) * qVal;
                     var quantRound = (val, qVal) => Math.round(val/qVal) * qVal;
                     
-                    if(Math.abs(svgXY.x - mouseMoveRoot.svgX) < quantWidth * 0.9 && !quantDragActivated) { 
+                    if(Math.abs(svgXY.x - this.mouseMoveRoot.svgX) < quantWidth * 0.9 && !this.quantDragActivated) { 
                         xMove = xDevRaw;
                     } else {
                         xMove = quantRound(xDevRaw, quantWidth);
-                        quantDragActivated = true;
+                        this.quantDragActivated = true;
                     }
-                    var yMove = quant(svgXY.y, noteHeight) - quant(mouseMoveRoot.svgY, noteHeight);
-                    selectedNoteIds.forEach(function(id){
+                    var yMove = quant(svgXY.y, this.noteHeight) - quant(this.mouseMoveRoot.svgY, this.noteHeight);
+                    this.selectedNoteIds.forEach(function(id){
                         var noteModStart = this.noteModStartReference[id];
                         //postponed - make note quantization more like ableton's on drag
                         this.notes[id].elem.x(noteModStart.x + xMove);
                         this.notes[id].elem.y(noteModStart.y + yMove);
-                        this.notes[id].label.x(noteModStart.x + xMove + textDev);
+                        this.notes[id].label.x(noteModStart.x + xMove + this.textDev);
                         this.notes[id].label.y(noteModStart.y + yMove);
                         this.notes[id].label.text(svgYToPitchString(this.notes[id].label.y()));
                         updateNoteInfo(this.notes[id], true);
@@ -681,16 +687,16 @@ class PianoRoll {
             //handlers of all of the selected elements here, calculate the resize using 'mousemove' info 
             //by moving 'resizing' handler logic to 'mousemove', and then on 'mouseup' reattaching 'resize'
             //handler (at least, for 'resizestart' to piggyback on the gesture detection).
-            resizeTarget = this;
+            this.resizeTarget = this;
             this.resize('stop');
-            resizingActive = true;
+            this.resizingActive = true;
             svgParentObj.on('mousemove', function(event){
                 var svgXY = svgMouseCoord(event);
                 var xMove;
-                var xDevRaw = svgXY.x - mouseMoveRoot.svgX;
-                var oldX = this.noteModStartReference[resizeTarget.noteId].x;
-                var isEndChange = resizeTarget.x() === oldX; //i.e, whehter you're moving the "start" or "end" of the note
-                selectedNoteIds.forEach(function(id){
+                var xDevRaw = svgXY.x - this.mouseMoveRoot.svgX;
+                var oldX = this.noteModStartReference[this.resizeTarget.noteId].x;
+                var isEndChange = this.resizeTarget.x() === oldX; //i.e, whehter you're moving the "start" or "end" of the note
+                this.selectedNoteIds.forEach(function(id){
                     var oldNoteVals = this.noteModStartReference[id];
                     //inProgress - control the resizing/overlap of the selected elements here and you don't 
                     //have to worry about them in executeOverlapVisibleChanges()
@@ -711,8 +717,8 @@ class PianoRoll {
 
         // noteElement.on('click', function(event){
         //     if(!this.motionOnDrag) {
-        //         if(!shiftKeyDown) clearNoteSelection();
-        //         console.log("shiftKeyDown on click", shiftKeyDown);
+        //         if(!this.shiftKeyDown) clearNoteSelection();
+        //         console.log("this.shiftKeyDown on click", this.shiftKeyDown);
         //         selectNote(this);
         //     }
         // });
@@ -726,25 +732,26 @@ class PianoRoll {
     selectNote(noteElem){
         if(!this.selectedElements.has(noteElem)) {
             this.selectedElements.add(noteElem);
-            noteElem.fill(selectedNoteColor);
+            noteElem.fill(this.selectedNoteColor);
         }
     }
 
     deselectNote(noteElem){
         if(this.selectedElements.has(noteElem)) {
             this.selectedElements.delete(noteElem);
-            noteElem.fill(noteColor);
+            noteElem.fill(this.noteColor);
         }
     }
 
     // calculates if a note intersects with the mouse-multiselect rectangle
+    //todo - cleanup this first argument
     selectRectIntersection(selectRect_, noteElem){
         //top-left and bottom right of bounding rect. done this way b/c getBBox doesnt account for line thickness
         var noteBox = {
-            tl: {x: noteElem.x(), y: noteElem.y() - noteHeight/2},  
-            br: {x: noteElem.x() + noteElem.width(), y: noteElem.y() + noteHeight/2},
+            tl: {x: noteElem.x(), y: noteElem.y() - this.noteHeight/2},  
+            br: {x: noteElem.x() + noteElem.width(), y: noteElem.y() + this.noteHeight/2},
         };
-        var selectRectBox = selectRect.node.getBBox();
+        var selectRectBox = this.selectRect.node.getBBox();
         var selectBox = {
             tl: {x: selectRectBox.x, y: selectRectBox.y},
             br: {x: selectRectBox.x + selectRectBox.width , y: selectRectBox.y + selectRectBox.height}
@@ -774,14 +781,14 @@ SVG.on(document, 'DOMContentLoaded', function() {
     drawBackground();
 
     // attach the interaction handlers not related to individual notes
-    attachHandlersOnBackground(backgroundElements, this.svgRoot);
+    attachHandlersOnBackground(this.backgroundElements, this.svgRoot);
 
     addNote(120, 0, 1, false);
     addNote(115, 0, 1, false);
 
 
     //set the view-area so we aren't looking at the whole 127 note 100 measure piano roll
-    this.svgRoot.viewbox(0, 0, viewportWidth, viewportHeight);
+    this.svgRoot.viewbox(0, 0, this.viewportWidth, this.viewportHeight);
 
     // setMouseMovementHandlers(this.svgRoot);
 
