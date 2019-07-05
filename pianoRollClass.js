@@ -160,6 +160,8 @@ class PianoRoll {
         this.quantResizingActivated = false;
         this.resizeTarget = null;
 
+        this.rawSVGElementToWrapper = {};
+
         this.drawBackground();
 
         // attach the interaction handlers not related to individual notes
@@ -211,7 +213,8 @@ class PianoRoll {
 
     //duration is number of quarter notes, pitch is 0-indexed MIDI
     addNote(pitch, position, duration, isHistoryManipulation){
-        let rect = this.svgRoot.rect(duration*this.quarterNoteWidth, this.noteHeight).move(position*this.quarterNoteWidth, (127-pitch)*this.noteHeight).fill(this.noteColor);;
+        let rect = this.svgRoot.rect(duration*this.quarterNoteWidth, this.noteHeight).move(position*this.quarterNoteWidth, (127-pitch)*this.noteHeight).fill(this.noteColor);
+        this.rawSVGElementToWrapper[rect.node.id] = rect;
         rect.noteId = this.noteCount;
         rect.selectize({rotationPoint: false, points:["r", "l"]}).resize();
         let text = this.svgRoot.text(this.svgYToPitchString(rect.y()))
@@ -365,12 +368,12 @@ class PianoRoll {
         if(event.ctrlKey && !event.altKey){
             this.mouseMoveRootNeedsReset = true;
             this.mouseScrollActive = true;
-            $('#drawing').mousemove(mouseScrollHandler);
+            $('#drawing').mousemove(this.mouseScrollHandler);
         }
         if(event.altKey && !event.ctrlKey){
             this.mouseMoveRootNeedsReset = true;
             this.mouseZoomActive = true;
-            $('#drawing').mousemove(mouseZoomHandler);
+            $('#drawing').mousemove(this.mouseZoomHandler);
         }
         if(event.key == "Backspace"){
             this.deleteNotes(this.selectedElements);
@@ -597,6 +600,7 @@ class PianoRoll {
 
     executeOverlapVisibleChanges(){
         let currentlyModifiedNotes = new Set();
+        let notesToRestore = new Set();
         this.selectedElements.forEach((selectedElem)=>{
             let selectedNote = this.notes[selectedElem.noteId];
             let samePitch = this.spatialNoteTracker[selectedNote.info.pitch];
@@ -629,7 +633,7 @@ class PianoRoll {
                 });
             }
         });
-        let notesToRestore = this.nonSelectedModifiedNotes.difference(currentlyModifiedNotes);
+        notesToRestore = this.nonSelectedModifiedNotes.difference(currentlyModifiedNotes);
         notesToRestore.forEach(id => this.updateNoteElement(this.notes[id]));
         this.nonSelectedModifiedNotes = currentlyModifiedNotes;
     }
@@ -660,8 +664,8 @@ class PianoRoll {
         noteElement.on('mousedown', (event)=>{
             if(!this.mouseScrollActive && !this.mouseZoomActive) {
                 this.resetMouseMoveRoot(event);
-                this.initializeNoteModificationAction(this);
-                this.dragTarget = this;
+                this.dragTarget = this.rawSVGElementToWrapper[event.target.id];
+                this.initializeNoteModificationAction(this.dragTarget);
                 this.draggingActive = true;
                 svgParentObj.on("mousemove", (event)=>{
                     let svgXY = this.svgMouseCoord(event);
@@ -694,7 +698,8 @@ class PianoRoll {
         });
 
         noteElement.on('resizestart', (event)=>{
-            this.initializeNoteModificationAction(this);
+            this.resizeTarget = this.rawSVGElementToWrapper[event.target.id];
+            this.initializeNoteModificationAction(this.resizeTarget);
 
             //extracting the base dom-event from the SVG.js event so we can snapshot the current mouse coordinates
             this.resetMouseMoveRoot(event.detail.event.detail.event);
@@ -704,8 +709,8 @@ class PianoRoll {
             //handlers of all of the selected elements here, calculate the resize using 'mousemove' info 
             //by moving 'resizing' handler logic to 'mousemove', and then on 'mouseup' reattaching 'resize'
             //handler (at least, for 'resizestart' to piggyback on the gesture detection).
-            this.resizeTarget = this;
-            this.resize('stop');
+            
+            this.resizeTarget.resize('stop');
             this.resizingActive = true;
             svgParentObj.on('mousemove', (event)=>{
                 let svgXY = this.svgMouseCoord(event);
