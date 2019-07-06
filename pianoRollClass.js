@@ -382,12 +382,52 @@ class PianoRoll {
         }
         if(event.key == "Backspace"){
             this.deleteNotes(this.selectedElements);
-            event.stopPropagation();
         }
         if(event.key === "z" && event.metaKey){
             if(this.shiftKeyDown) this.executeRedo();
             else this.executeUndo();
         }
+        if(event.key === "ArrowUp"){
+            this.shiftNotesPitch(1);
+            event.preventDefault();
+        }
+        if(event.key === "ArrowDown"){
+            this.shiftNotesPitch(-1);
+            event.preventDefault();
+        }
+        if(event.key === "ArrowLeft"){
+            this.shiftNotesTime(-0.25);
+            event.preventDefault();
+        }
+        if(event.key === "ArrowRight"){
+            this.shiftNotesTime(0.25);
+            event.preventDefault();
+        }
+        event.stopPropagation();
+    }
+
+    shiftNotesPitch(shiftAmount){
+        this.selectedNoteIds = Array.from(this.selectedElements).map(elem => elem.noteId);
+        this.selectedNoteIds.forEach(id => {
+            let note = this.notes[id];
+            note.info.pitch += shiftAmount;
+            this.updateNoteElement(note);
+        });
+        this.executeOverlapVisibleChanges();
+        this.refreshNoteModStartReference(this.selectedNoteIds);//this.updateNoteStateOnModificationCompletion()
+        this.snapshotNoteState();
+    }
+
+    shiftNotesTime(shiftAmount){
+        this.selectedNoteIds = Array.from(this.selectedElements).map(elem => elem.noteId);
+        this.selectedNoteIds.forEach(id => {
+            let note = this.notes[id];
+            note.info.position += shiftAmount;
+            this.updateNoteElement(note);
+        });
+        this.executeOverlapVisibleChanges();
+        this.refreshNoteModStartReference(this.selectedNoteIds);//this.updateNoteStateOnModificationCompletion()
+        this.snapshotNoteState();
     }
 
     keyupHandler(event){
@@ -406,7 +446,7 @@ class PianoRoll {
 
     snapshotNoteState(){
         console.log("snapshot", this.historyList.length, this.historyListIndex);
-        let noteState = Object.values(this.notes).map(note => note.info);
+        let noteState = Object.values(this.notes).map(note => Object.assign({}, note.info));
         if(this.historyListIndex == this.historyList.length-1){
             this.historyList.push(noteState);
         } else {
