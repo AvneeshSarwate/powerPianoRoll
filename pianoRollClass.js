@@ -66,10 +66,6 @@ Basic strategy for implementing multi-note modifications -
   the other "selected" elements. 
 - Calulate the mouse motion/deviation from the mousedown point on the target element
 - Use this mouse deviation info to control movement/resizing of all selected elements
-
-
-TODO generally - clean up usage of variable_ type functional arguments that are duplicates of class variables
-
 */
 
 class PianoRoll {
@@ -553,7 +549,7 @@ class PianoRoll {
                 let noteElem = this.notes[noteId].elem;
                 
                 // let intersecting = svgParentObj.node.checkIntersection(noteElem.node, this.selectRect.node.getBBox());
-                let intersecting = this.selectRectIntersection(this.selectRect, noteElem);
+                let intersecting = this.selectRectIntersection(noteElem);
                 if(intersecting) {
                     this.selectNote(noteElem);                        
                 } else {
@@ -621,7 +617,7 @@ class PianoRoll {
                         if(this.selectedElements.has(note.elem)){
                             let earlierElem = note.elem.x() < selectedNote.elem.x() ? note : selectedNote;
                             let laterElem = note.elem.x() > selectedNote.elem.x() ? note : selectedNote; 
-
+                            //todo - handle case when two selected notes are the same pitch and you do a group resize and one overlaps another
 
 
                         } else {
@@ -664,11 +660,6 @@ class PianoRoll {
         /* Performs the same drag deviation done on the clicked element to 
          * the other selected elements
          */
-
-
-        //TODO - will need to resolve "this" for eventTarget vs PianoRoll instance in all of these handlers
-        //     - maybe just have "let pianoRoll = this" defined in the scope of this comment, and use that as
-        //     - the reference in the hanlders? then "this" refers to the event-target in the handler
 
         noteElement.on('point', (event)=>{ console.log("select", event)});
 
@@ -777,8 +768,7 @@ class PianoRoll {
     }
 
     // calculates if a note intersects with the mouse-multiselect rectangle
-    //todo - cleanup this first argument
-    selectRectIntersection(selectRect_, noteElem){
+    selectRectIntersection(noteElem){
         //top-left and bottom right of bounding rect. done this way b/c getBBox doesnt account for line thickness
         let noteBox = {
             tl: {x: noteElem.x(), y: noteElem.y() - this.noteHeight/2},  
