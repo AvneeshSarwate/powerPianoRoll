@@ -90,10 +90,12 @@ class PianoRoll {
 
         this.selectRect; //the variable holding the mouse-region highlight svg rectabgle 
 
+        this.cursorElement;
+        this.cursorPosition = 0.25; //cursor position is in beats
+        this.cursorWidth = 2.1; 
+
         //svg elements in the pianoRoll background
         this.backgroundElements;
-
-
 
         this.quarterNoteWidth = 120; //in pixels
         this.noteHeight = 20; //in pixels
@@ -166,7 +168,7 @@ class PianoRoll {
 
         this.temporaryMouseMoveHandler = null;        
 
-        this.drawBackground();
+        this.drawBackgroundAndCursor();
 
         // attach the interaction handlers not related to individual notes
         this.attachHandlersOnBackground(this.backgroundElements, this.svgRoot);
@@ -182,7 +184,7 @@ class PianoRoll {
         this.containerElement.addEventListener("keyup", event => this.keyupHandler(event));
     }
 
-    drawBackground() {
+    drawBackgroundAndCursor() {
         this.pianoRollHeight = this.noteHeight * this.NUM_MIDI_NOTES;
         let pulsesPerMeasure = this.timeSignature * 4;
         this.pianoRollWidth = this.quarterNoteWidth * pulsesPerMeasure * this.numMeasures;
@@ -210,6 +212,9 @@ class PianoRoll {
             let line = this.svgRoot.line(0, i*this.noteHeight, this.pianoRollWidth, i*this.noteHeight).stroke({width: this.thinLineWidth});
             this.backgroundElements.add(line);
         }
+
+        this.cursorElement = this.svgRoot.rect(this.cursorWidth, this.pianoRollHeight).move(this.cursorPosition * this.quarterNoteWidth, 0).fill(this.noteColor);
+        this.cursorElement.animate(1500, "<>").attr({fill: "#fff"}).loop(Infinity, true);
     }
 
 
