@@ -160,7 +160,14 @@ class PianoRoll {
         this.quantResizingActivated = false;
         this.resizeTarget = null;
 
-        this.rawSVGElementToWrapper = {};
+        //used to get around scope/"this" issues - for drag/resize handlers we have access to raw 
+        //svg element but need the SVG.js wrapper 
+        this.rawSVGElementToWrapper = {}; 
+
+        this.containerElement = document.getElementById(containerElementId);
+        this.containerElementId = containerElementId;
+
+        this.temporaryMouseMoveHandler = null;        
 
         this.drawBackground();
 
@@ -174,10 +181,8 @@ class PianoRoll {
         //set the view-area so we aren't looking at the whole 127 note 100 measure piano roll
         this.svgRoot.viewbox(0, 0, this.viewportWidth, this.viewportHeight);
 
-        // setMouseMovementHandlers(this.svgRoot);
-
-        $('#drawing').keydown(event => this.keydownHandler(event));
-        $('#drawing').keyup(event => this.keyupHandler(event));
+        this.containerElement.addEventListener("keydown", event => this.keydownHandler(event));
+        this.containerElement.addEventListener("keyup", event => this.keyupHandler(event));
     }
 
     drawBackground() {
@@ -188,7 +193,7 @@ class PianoRoll {
         let vertLineSpace = this.pianoRollWidth / numVertLines;
         this.xSnap = vertLineSpace;
         let measureWidth = this.quarterNoteWidth*pulsesPerMeasure;
-        this.svgRoot = SVG('drawing').attr('id', 'pianoRollSVG').size(this.viewportWidth, this.viewportHeight);
+        this.svgRoot = SVG(this.containerElementId).attr('id', 'pianoRollSVG').size(this.viewportWidth, this.viewportHeight);
         this.refPt = this.svgRoot.node.createSVGPoint();
         this.maxZoom = this.viewportHeight / this.pianoRollHeight;
 
@@ -368,12 +373,14 @@ class PianoRoll {
         if(event.ctrlKey && !event.altKey){
             this.mouseMoveRootNeedsReset = true;
             this.mouseScrollActive = true;
-            $('#drawing').mousemove(ev =>this.mouseScrollHandler(ev));
+            this.temporaryMouseMoveHandler = ev => this.mouseScrollHandler(ev);
+            this.containerElement.addEventListener("mousemove", this.temporaryMouseMoveHandler);
         }
         if(event.altKey && !event.ctrlKey){
             this.mouseMoveRootNeedsReset = true;
             this.mouseZoomActive = true;
-            $('#drawing').mousemove(ev => this.mouseZoomHandler(ev));
+            this.temporaryMouseMoveHandler = ev => this.mouseZoomHandler(ev);
+            this.containerElement.addEventListener("mousemove", this.temporaryMouseMoveHandler);
         }
         if(event.key == "Backspace"){
             this.deleteNotes(this.selectedElements);
@@ -389,11 +396,13 @@ class PianoRoll {
         if(event.key == "Shift") this.shiftKeyDown = false; 
         if(!event.ctrlKey && this.mouseScrollActive) {
             this.mouseScrollActive = false;
-            $('#drawing').off('mousemove');
+            this.containerElement.removeEventListener('mousemove', this.temporaryMouseMoveHandler);
+            this.temporaryMouseMoveHandler = null;
         }
         if(!event.altKey && this.mouseZoomActive) {
             this.mouseZoomActive = false;
-            $('#drawing').off('mousemove');
+            this.containerElement.removeEventListener('mousemove', this.temporaryMouseMoveHandler);
+            this.temporaryMouseMoveHandler = null;
         }
     }
 
@@ -799,7 +808,7 @@ class PianoRoll {
 }
 
 SVG.on(document, 'DOMContentLoaded', function() {
-    let pianoRoll = new PianoRoll();
+    let pianoRoll = new PianoRoll("drawing");
 });
 
 /*
