@@ -407,27 +407,29 @@ class PianoRoll {
     }
 
     shiftNotesPitch(shiftAmount){
-        this.selectedNoteIds = Array.from(this.selectedElements).map(elem => elem.noteId);
+        this.initializeNoteModificationAction();
         this.selectedNoteIds.forEach(id => {
             let note = this.notes[id];
             note.info.pitch += shiftAmount;
             this.updateNoteElement(note);
         });
         this.executeOverlapVisibleChanges();
-        this.refreshNoteModStartReference(this.selectedNoteIds);//this.updateNoteStateOnModificationCompletion()
-        this.snapshotNoteState();
+        this.updateNoteStateOnModificationCompletion();
+        // this.refreshNoteModStartReference(this.selectedNoteIds);
+        // this.snapshotNoteState();
     }
 
     shiftNotesTime(shiftAmount){
-        this.selectedNoteIds = Array.from(this.selectedElements).map(elem => elem.noteId);
+        this.initializeNoteModificationAction();
         this.selectedNoteIds.forEach(id => {
             let note = this.notes[id];
             note.info.position += shiftAmount;
             this.updateNoteElement(note);
         });
         this.executeOverlapVisibleChanges();
-        this.refreshNoteModStartReference(this.selectedNoteIds);//this.updateNoteStateOnModificationCompletion()
-        this.snapshotNoteState();
+        this.updateNoteStateOnModificationCompletion();
+        // this.refreshNoteModStartReference(this.selectedNoteIds);//
+        // this.snapshotNoteState();
     }
 
     keyupHandler(event){
@@ -521,7 +523,7 @@ class PianoRoll {
     initializeNoteModificationAction(element){
         this.selectedNoteIds = Array.from(this.selectedElements).map(elem => elem.noteId);
         this.nonSelectedModifiedNotes.clear();
-        if(!this.selectedNoteIds.includes(element.noteId)) {
+        if(element && !this.selectedNoteIds.includes(element.noteId)) {
             if(!this.shiftKeyDown) this.clearNoteSelection();
             this.selectNote(element);
             this.selectedNoteIds = [element.noteId];
