@@ -281,6 +281,7 @@ class PianoRoll {
         note.elem.x(note.info.position * this.quarterNoteWidth);
         note.elem.y((127-note.info.pitch)*this.noteHeight);
         note.elem.width(note.info.duration*this.quarterNoteWidth);
+        note.label.show();
         note.label.x(note.info.position * this.quarterNoteWidth + this.textDev);
         note.label.y((127-note.info.pitch)*this.noteHeight);
         note.label.text(this.svgYToPitchString(note.label.y()));
@@ -756,7 +757,7 @@ class PianoRoll {
         // });
 
         noteElement.on('dblclick', (event)=>{
-            this.deleteNotes([this]);
+            this.deleteNotes([this.rawSVGElementToWrapper[event.target.id]]);
         })
     }
 
@@ -808,8 +809,9 @@ class PianoRoll {
     }
 }
 
+let pianoRoll;
 SVG.on(document, 'DOMContentLoaded', function() {
-    let pianoRoll = new PianoRoll("drawing");
+    pianoRoll = new PianoRoll("drawing");
 });
 
 /*
