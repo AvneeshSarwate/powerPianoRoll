@@ -111,7 +111,7 @@ class PianoRoll {
         this.ySnap = this.noteHeight;
 
         this.backgroundColor1 = '#ddd';
-        this.backgroundColor1 = '#bbb';
+        this.backgroundColor2 = '#bbb';
         this.noteColor = '#f23';
         this.selectedNoteColor = '#2ee'
         this.thickLineWidth = 1.8;
@@ -196,7 +196,7 @@ class PianoRoll {
 
         this.backgroundElements = new Set();
         for(let i = 0; i < this.numMeasures; i++){
-            let color = i % 2 == 0 ? this.backgroundColor1 : this.backgroundColor1;
+            let color = i % 2 == 0 ? this.backgroundColor1 : this.backgroundColor2;
             let panel = this.svgRoot.rect(measureWidth, this.pianoRollHeight).move(i*measureWidth, 0).fill(color);
             this.backgroundElements.add(panel);
         }
