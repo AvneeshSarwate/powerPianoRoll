@@ -176,8 +176,8 @@ class PianoRoll {
 
         // setMouseMovementHandlers(this.svgRoot);
 
-        $('#drawing').keydown(this.keydownHandler);
-        $('#drawing').keyup(this.keyupHandler);
+        $('#drawing').keydown(event => this.keydownHandler(event));
+        $('#drawing').keyup(event => this.keyupHandler(event));
     }
 
     drawBackground() {
@@ -368,12 +368,12 @@ class PianoRoll {
         if(event.ctrlKey && !event.altKey){
             this.mouseMoveRootNeedsReset = true;
             this.mouseScrollActive = true;
-            $('#drawing').mousemove(this.mouseScrollHandler);
+            $('#drawing').mousemove(ev =>this.mouseScrollHandler(ev));
         }
         if(event.altKey && !event.ctrlKey){
             this.mouseMoveRootNeedsReset = true;
             this.mouseZoomActive = true;
-            $('#drawing').mousemove(this.mouseZoomHandler);
+            $('#drawing').mousemove(ev => this.mouseZoomHandler(ev));
         }
         if(event.key == "Backspace"){
             this.deleteNotes(this.selectedElements);
