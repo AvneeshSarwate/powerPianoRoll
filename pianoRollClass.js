@@ -162,6 +162,8 @@ class PianoRoll {
         //svg element but need the SVG.js wrapper 
         this.rawSVGElementToWrapper = {}; 
 
+        this.copiedNoteBuffer = [];
+
         this.containerElement = document.getElementById(containerElementId);
         this.containerElement.tabIndex = 0;
         this.containerElementId = containerElementId;
@@ -219,7 +221,7 @@ class PianoRoll {
 
 
     //duration is number of quarter notes, pitch is 0-indexed MIDI
-    addNote(pitch, position, duration, isHistoryManipulation){
+    addNote(pitch, position, duration, avoidHistoryManipulation){
         let rect = this.svgRoot.rect(duration*this.quarterNoteWidth, this.noteHeight).move(position*this.quarterNoteWidth, (127-pitch)*this.noteHeight).fill(this.noteColor);
         this.rawSVGElementToWrapper[rect.node.id] = rect;
         rect.noteId = this.noteCount;
@@ -235,7 +237,7 @@ class PianoRoll {
             label: text
         }
         this.noteCount++;
-        if(!isHistoryManipulation){
+        if(!avoidHistoryManipulation){
             this.snapshotNoteState();
         }
         return rect.noteId;
@@ -392,6 +394,12 @@ class PianoRoll {
             if(this.shiftKeyDown) this.executeRedo();
             else this.executeUndo();
         }
+        if(event.key === "c" && event.metaKey){
+            this.copyNotes();
+        }
+        if(event.key === "v" && event.metaKey){
+            this.pasteNotes();
+        }
         if(event.key === "ArrowUp"){
             this.shiftNotesPitch(1);
             event.preventDefault();
@@ -409,6 +417,31 @@ class PianoRoll {
             event.preventDefault();
         }
         event.stopPropagation();
+    }
+
+    copyNotes(){
+        this.selectedNoteIds = Array.from(this.selectedElements).map(elem => elem.noteId);
+        let selectedNoteInfos = this.selectedNoteIds.map(id => this.notes[id].info);
+        let minNoteStart = Math.min(...selectedNoteInfos.map(info => info.position));
+        this.copiedNoteBuffer = selectedNoteInfos.map(info => {
+            let newInfo = Object.assign({}, info);
+            newInfo.position -= minNoteStart
+            return newInfo;
+        });
+    }
+
+    pasteNotes(){
+        this.initializeNoteModificationAction();
+
+        //marking the newly pasted notes as "selected" eases overlap handling
+        this.selectedNoteIds = this.copiedNoteBuffer.map(info => this.addNote(info.pitch, this.cursorPosition+info.position, info.duration, true));
+        this.selectedElements = new Set(this.selectedNoteIds.map(id => this.notes[id].elem));
+        
+        this.executeOverlapVisibleChanges();
+        this.updateNoteStateOnModificationCompletion();
+
+        //deselect all notes to clean up 
+        Object.keys(this.notes).forEach((id)=>this.deselectNote(this.notes[id].elem));
     }
 
     shiftNotesPitch(shiftAmount){
@@ -692,11 +725,18 @@ class PianoRoll {
                 });
             }
         });
-        notesToRestore = this.nonSelectedModifiedNotes.difference(currentlyModifiedNotes);
+        notesToRestore = this.setDifference(this.nonSelectedModifiedNotes, currentlyModifiedNotes);
         notesToRestore.forEach(id => this.updateNoteElement(this.notes[id]));
         this.nonSelectedModifiedNotes = currentlyModifiedNotes;
     }
 
+    setDifference(setA, setB){
+        var difference = new Set(setA);
+        for (var elem of setB) {
+            difference.delete(elem);
+        }
+        return difference;
+    }
 
     isDragOutOfBounds(){
 
