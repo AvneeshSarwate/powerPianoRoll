@@ -548,7 +548,6 @@ class PianoRoll {
             Object.keys(this.notes).forEach((noteId)=>{
                 let noteElem = this.notes[noteId].elem;
                 
-                // let intersecting = svgParentObj.node.checkIntersection(noteElem.node, this.selectRect.node.getBBox());
                 let intersecting = this.selectRectIntersection(noteElem);
                 if(intersecting) {
                     this.selectNote(noteElem);                        
@@ -686,7 +685,7 @@ class PianoRoll {
                     let yMove = quant(svgXY.y, this.noteHeight) - quant(this.mouseMoveRoot.svgY, this.noteHeight);
                     this.selectedNoteIds.forEach((id)=>{
                         let noteModStart = this.noteModStartReference[id];
-                        //postponed - make note quantization more like ableton's on drag
+                        //Todo - make note quantization more like ableton's on drag
                         this.notes[id].elem.x(noteModStart.x + xMove);
                         this.notes[id].elem.y(noteModStart.y + yMove);
                         this.notes[id].label.x(noteModStart.x + xMove + this.textDev);
