@@ -165,6 +165,7 @@ class PianoRoll {
         this.rawSVGElementToWrapper = {}; 
 
         this.containerElement = document.getElementById(containerElementId);
+        this.containerElement.tabIndex = 0;
         this.containerElementId = containerElementId;
 
         this.temporaryMouseMoveHandler = null;        
