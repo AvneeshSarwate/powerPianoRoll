@@ -625,6 +625,12 @@ class PianoRoll {
 
         backgroundElements_.forEach((elem)=>{
             elem.on('mousedown', (event)=>{
+                let quantRound = (val, qVal) => Math.round(val/qVal) * qVal;
+                let mouseXY = this.svgMouseCoord(event);
+                let posSVG = quantRound(mouseXY.x, this.quarterNoteWidth/4);
+                this.cursorElement.x(posSVG-this.cursorWidth/2);
+                this.cursorPosition = posSVG/this.quarterNoteWidth;
+                // console.log("mousedown background", posSym, posSVG, event);
                 this.startDragSelection();
             });
 
