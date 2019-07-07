@@ -395,25 +395,25 @@ class PianoRoll {
             else this.executeUndo();
         }
         if(event.key === "c" && event.metaKey){
-            this.copyNotes();
+            if(this.selectedElements.size > 0) this.copyNotes();
         }
         if(event.key === "v" && event.metaKey){
-            this.pasteNotes();
+            if(this.copiedNoteBuffer.length > 0) this.pasteNotes();
         }
         if(event.key === "ArrowUp"){
-            this.shiftNotesPitch(1);
+            if(this.selectedElements.size > 0) this.shiftNotesPitch(1);
             event.preventDefault();
         }
         if(event.key === "ArrowDown"){
-            this.shiftNotesPitch(-1);
+            if(this.selectedElements.size > 0) this.shiftNotesPitch(-1);
             event.preventDefault();
         }
         if(event.key === "ArrowLeft"){
-            this.shiftNotesTime(-0.25);
+            if(this.selectedElements.size > 0) this.shiftNotesTime(-0.25);
             event.preventDefault();
         }
         if(event.key === "ArrowRight"){
-            this.shiftNotesTime(0.25);
+            if(this.selectedElements.size > 0) this.shiftNotesTime(0.25);
             event.preventDefault();
         }
         event.stopPropagation();
