@@ -69,8 +69,9 @@ Basic strategy for implementing multi-note modifications -
 */
 
 class PianoRoll {
-    constructor(containerElementId){
+    constructor(containerElementId, oscInterface){
         this.svgRoot; //the svg root element
+        this.osc = oscInterface;
 
         /* a dictionary that, upon the start of a group drag/resize event, stores the 
          * initial positions and lengths of all notes so that the mouse modifications to
@@ -484,6 +485,11 @@ class PianoRoll {
         }
     }
 
+    sendNoteStateOverOSC(noteStae){
+        let message = new OSC.Message("/pianoRollNotes", this.containerElementId, JSON.stringify(noteStae));
+        this.osc.send(message);
+    }
+
     snapshotNoteState(){
         console.log("snapshot", this.historyList.length, this.historyListIndex);
         let noteState = Object.values(this.notes).map(note => Object.assign({}, note.info));
@@ -493,6 +499,7 @@ class PianoRoll {
             this.historyList = this.historyList.splice(0, this.historyListIndex+1);
             this.historyList.push(noteState);
         }
+        this.sendNoteStateOverOSC(noteState);
         this.historyListIndex++;
     }
 
@@ -893,7 +900,13 @@ class PianoRoll {
 
 let pianoRoll;
 SVG.on(document, 'DOMContentLoaded', function() {
-    pianoRoll = new PianoRoll("drawing");
+    let osc = new OSC({
+        discardLateMessages: true
+    });
+    osc.connect("localhost", 8087);
+    osc.on("open", () => {
+        pianoRoll = new PianoRoll("drawing", osc);
+    })
 });
 
 /*
