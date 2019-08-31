@@ -3,6 +3,7 @@
 ~pianoRollPort = NetAddr("localhost", 5430);
 ~playerPatterns = Dictionary.new //has 2 patterns "notePlayer", "phaseTracker"
 ~tempoClock = TempoClock.new(2);
+var midiOut = ~getMidiOut.("IAC Bus", "Port 2");
 
 OSCFunc.new({|msg, time, addr, recvPort|
     ~newestNoteState = msg[2].asString.parseJson.collect({|note|
@@ -18,13 +19,37 @@ OSCFunc.new({|msg, time, addr, recvPort|
 
 ~startPlaying = {|pos|
     //find notes that intersect pos
+    var intersectNotes = ~newestNoteState.select({|note| (note["position"] <= pos) && (pos < note["position"]+note["duration"])});
     //create dictionary of intersecting notes "chopped" to start at pos
-    //unition chopped intersecting notes with notes starting after pos
-    //flatten notes into individual on/off events
-    //make pseq of notes and deltas
-
+    var choppedNotes = intersectNotes.collect({|note|
+        var newNote = note.deepCopy;
+        newNote["position"] = pos;
+        newNote
+    });
+    //union chopped intersecting notes with notes starting after pos
+    var notesToPlay = choppedNotes ++ ~newestNoteState.select({|note| pos < note["position"]});
+    //flatten notes into individual on/off events and sort
+    var onOffEvents = notesToPlay.collect({|note|
+        [[note["position"], note["pitch"], 'on'], [note["position"]+note["duration"], 'off']]
+    }).sort({|a, b| a[0] < b[0]});
+    //make deltas
+    var onOffDeltas = ([[pos]]++onOffEvents).collect({|e, i| if(i != 0, {[e[0]-onOffEvents[i-1][0], e[1], e[2]]})});
+    //make pbind
+    var notePlayer = Pbind(
+        \delta, Pseq(onOffDeltas.collect({|e| e[0]})-pos)
+        \midiEvent, Pseq(onOffDeltas),
+        \play, {if(~midiEvent[2] == \on, {midiOut.noteOn(0, ~midiEvent[1])}, {midiOut.noteOff(0, ~midiEvent[1])})}
+    );
     //find "end time" of last event from prev seq
+    var lastEventTime = onOffDeltas.wrapAt(-1);
+    var cursorFramerate = 60;
+    var numSteps = (lastEventTime-pos) / ~tempoClock.tempo * cursorFramerate;
     //make pseq of frame-time updates where the seq value is just an increasing counter + "pos" variable bound in a closure
+    var phaseTracker = Pbind(
+        \delta, 1/cursorFramerate,
+        \phase, Pseq((0..(numSteps))),
+        \play, {~pianoRollPort.sendMsg("/placeCurosr", (~phase*(lastEventTime-pos))+pos)}
+    );
 
 };
 // msg[1] is time to start playing from
@@ -46,3 +71,7 @@ OSCFunc.new({|msg, time, addr, recvPort|
 
 ~pianoRollPort.sendMsg("/placeCursor", 2)
 
+a.select({|n| n < 2})
+a = [1, 2, 3, 4]
+a.collect({|e, i| [e, i, c].postln;})
+a.wrapAt(-1)
