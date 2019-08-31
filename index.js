@@ -31,7 +31,7 @@ var udp = new osc.UDPPort({
     localAddress: "127.0.0.1",
     localPort: 5430,
     remoteAddress: "127.0.0.1",
-    remotePort: 34345
+    remotePort: 57120
 });
 
 udp.on("ready", function () {

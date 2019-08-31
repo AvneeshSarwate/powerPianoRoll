@@ -896,6 +896,12 @@ class PianoRoll {
     clearNoteSelection(){
         this.selectedElements.forEach(noteElem => this.deselectNote(noteElem));
     }
+
+    //Methods for updating piano roll via player
+    placeCursor(position){
+        this.cursorPosition = position;
+        this.cursorElement.x(this.cursorPosition*this.quarterNoteWidth - this.cursorWidth/2);
+    }
 }
 
 let pianoRoll;
@@ -906,6 +912,10 @@ SVG.on(document, 'DOMContentLoaded', function() {
     osc.connect("localhost", 8087);
     osc.on("open", () => {
         pianoRoll = new PianoRoll("drawing", osc);
+    });
+    osc.on("/placeCursor", (msg)=>{
+        pianoRoll.placeCursor(msg.args[0])
+        console.log("place cursor", msg.args[0]);
     })
 });
 
