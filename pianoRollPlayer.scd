@@ -72,8 +72,12 @@ OSCFunc.new({|msg, time, addr, recvPort|
     //make pseq of frame-time updates where the seq value is just an increasing counter + "pos" variable bound in a closure
     phaseTracker = Pbind(
         \delta, 1/cursorFramerate,
-        \playPhaseInc, Pseq((0..numFramesToPlay).asList),
-        \play, {pianoRollPort.sendMsg("/placeCurosr", (~playPhaseInc*(lastEventTime-pos))+pos)}
+        \playPhaseInc, Pseq((0..numFramesToPlay).asList/numFramesToPlay),
+        \play, {
+            var cursorPos = (~playPhaseInc*playLength)+pos;
+            cursorPos.postln;
+            pianoRollPort.sendMsg("/placeCursor", cursorPos)
+        }
     );
     "G".postln;
 
