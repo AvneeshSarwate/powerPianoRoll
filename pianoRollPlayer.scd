@@ -23,18 +23,19 @@ OSCFunc.new({|msg, time, addr, recvPort|
     //find notes that intersect pos
     intersectNotes = ~newestNoteState.select({|note| (note["position"] <= pos) && (pos < (note["position"]+note["duration"]))});
     //create dictionary of intersecting notes "chopped" to start at pos
-    "A".postln;
+    ["A", intersectNotes].postln;
 
     choppedNotes = intersectNotes.collect({|note|
         var newNote = note.deepCopy;
+        newNote["duration"] = newNote["duration"] - (pos-newNote["position"]);
         newNote["position"] = pos;
         newNote
     });
-    "B".postln;
+    ["B", choppedNotes].postln;
 
     //union chopped intersecting notes with notes starting after pos
     notesToPlay = choppedNotes ++ ~newestNoteState.select({|note| pos < note["position"]});
-    "C".postln;
+    ["C", notesToPlay].postln;
 
     //flatten notes into individual on/off events and sort
     onOffEvents = notesToPlay.collect({|note|
@@ -101,7 +102,9 @@ OSCFunc.new({|msg, time, addr, recvPort|
 
 [[1, 2, [3, 4]], [5, 6, [7, 6]]].flatten
 
-~startPlaying.(0)
+~startPlaying.(1)
+
+
 
 ~newestNoteState[0]["position"] + 1
 
