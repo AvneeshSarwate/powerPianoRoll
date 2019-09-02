@@ -1,7 +1,8 @@
 (
 var midiOut = ~getMidiOut.("IAC Driver", "Bus 2");
+var pianoRollPort = NetAddr("localhost", 5430);
 ~newestNoteState = Dictionary.new;
-~pianoRollPort = NetAddr("localhost", 5430);
+~pianoRollPort = pianoRollPort;
 ~playerPatterns = Dictionary.new; //has 2 patterns "notePlayer", "phaseTracker"
 ~tempoClock = TempoClock.new(2);
 
@@ -18,7 +19,7 @@ OSCFunc.new({|msg, time, addr, recvPort|
 
 
 ~startPlaying = {|pos|
-    var intersectNotes, choppedNotes, notesToPlay, onOffEvents, onOffDeltas, notePlayer, lastEventTime, cursorFramerate, numSteps, phaseTracker;
+    var intersectNotes, choppedNotes, notesToPlay, onOffEvents, onOffDeltas, notePlayer, phaseTracker, lastEventTime, cursorFramerate, playLength, numFramesToPlay;
     //find notes that intersect pos
     intersectNotes = ~newestNoteState.select({|note| (note["position"] <= pos) && (pos < (note["position"]+note["duration"]))});
     //create dictionary of intersecting notes "chopped" to start at pos
@@ -37,16 +38,22 @@ OSCFunc.new({|msg, time, addr, recvPort|
 
     //flatten notes into individual on/off events and sort
     onOffEvents = notesToPlay.collect({|note|
-        [[note["position"], note["pitch"], 'on'], [note["position"]+note["duration"], note["pitch"],, 'off']]
+        [[note["position"], note["pitch"], 'on'], [note["position"]+note["duration"], note["pitch"], 'off']]
     });
-    onOffEvents = onOffEvents.flat;
+    onOffEvents = onOffEvents.flatten(1);
     "D1".postln;
-    onOffEvents.sort({|a, b|[a, b a[0] < b[0]});
-    "D2".postln;
+    onOffEvents.sort({|a, b| a[0] < b[0]});
+    ["D2", onOffEvents].postln;
 
     //make deltas
-    onOffDeltas = ([[pos]]++onOffEvents).collect({|e, i| if(i != 0, {[e[0]-onOffEvents[i-1][0], e[1], e[2]]})});
-    "E".postln;
+    onOffDeltas = onOffEvents.deepCopy;
+    ((onOffDeltas.size-1)..0).do({|i|
+        if(i == 0,
+            { onOffDeltas[i][0] = 0},
+            { onOffDeltas[i][0] =  onOffDeltas[i][0] - onOffDeltas[i-1][0]}
+        );
+    });
+    ["E", onOffDeltas].postln;
 
     //make pbind
     notePlayer = Pbind(
@@ -57,14 +64,16 @@ OSCFunc.new({|msg, time, addr, recvPort|
     "F".postln;
 
     //find "end time" of last event from prev seq
-    lastEventTime = onOffDeltas.wrapAt(-1);
+    lastEventTime = onOffEvents.wrapAt(-1)[0];
     cursorFramerate = 60;
-    numSteps = (lastEventTime-pos) / ~tempoClock.tempo * cursorFramerate;
+    playLength = lastEventTime-pos;
+    numFramesToPlay = (playLength / ~tempoClock.tempo * cursorFramerate).round;
+
     //make pseq of frame-time updates where the seq value is just an increasing counter + "pos" variable bound in a closure
     phaseTracker = Pbind(
         \delta, 1/cursorFramerate,
-        \phase, Pseq((0..(numSteps))),
-        \play, {~pianoRollPort.sendMsg("/placeCurosr", (~phase*(lastEventTime-pos))+pos)}
+        \playPhaseInc, Pseq((0..numFramesToPlay).asList),
+        \play, {pianoRollPort.sendMsg("/placeCurosr", (~playPhaseInc*(lastEventTime-pos))+pos)}
     );
     "G".postln;
 
@@ -84,10 +93,9 @@ OSCFunc.new({|msg, time, addr, recvPort|
     ~stopPlaying.();
 }, "/stopPlaying");
 
-
 )
 
-
+[[1, 2, [3, 4]], [5, 6, [7, 6]]].flatten
 
 ~startPlaying.(0)
 
