@@ -891,7 +891,52 @@ class PianoRoll {
     }
 }
 
+function pianoRollToToneEvents(pianoRoll){
+    let notes = pianoRoll.notes;
+    let bpm = Tone.Transport.bpm.value;
+    let toneEvents = Object.values(notes).map(noteInfo => {
+        let note = noteInfo.info;
+        return {
+            time: note.position * 60 / bpm,
+            pitch: noteInfo.label.text(), 
+            dur: note.duration  * 60 / bpm,
+        }
+    });
+    toneEvents.sort((a, b) => a.time-b.time);
+    return toneEvents;
+}
+
+function playPianoRoll(pianoRoll){
+    stopPianoRoll();
+
+    let toneEvents = pianoRollToToneEvents(pianoRoll);
+
+    playingPart = new Tone.Part((time, value) => {
+        console.log('part note', time, value);
+        synth.triggerAttackRelease(value.pitch, value.dur) //and velocity once that's in the piano roll
+    }, toneEvents).start();
+}
+
+function stopPianoRoll(){
+    if(playingPart){
+        playingPart.stop();
+        playingPart.dispose();
+    }
+}
+
+// var part = new Tone.Part(function(time, value){
+// 	//the value is an object which contains both the note and the velocity
+//     synth.triggerAttackRelease(value.note, "8n", time, value.velocity);
+// }, [{"time" : 0, "note" : "C3", "velocity": 0.9},
+// 	   {"time" : "0:2", "note" : "C4", "velocity": 0.5}
+// ]).start();
+
 let pianoRoll;
+let synth = new Tone.PolySynth(8).toMaster();
+let playingPart;
+StartAudioContext(Tone.context, 'body', () => {
+    Tone.Transport.start();
+});
 SVG.on(document, 'DOMContentLoaded', function() {
     pianoRoll = new PianoRoll("drawing");
 });
