@@ -897,12 +897,28 @@ function pianoRollToToneEvents(pianoRoll){
     let toneEvents = Object.values(notes).map(noteInfo => {
         let note = noteInfo.info;
         return {
-            time: note.position * 60 / bpm,
+            time: note.position,
             pitch: noteInfo.label.text(), 
-            dur: note.duration  * 60 / bpm,
+            dur: note.duration,
         }
     });
     toneEvents.sort((a, b) => a.time-b.time);
+    toneEvents = toneEvents.filter(e => e.time+e.dur > pianoRoll.cursorPosition);
+    toneEvents.forEach(e => {
+        if(e.time < pianoRoll.cursorPosition) {
+            e.dur = e.dur - (pianoRoll.cursorPosition-e.time);
+            e.time = pianoRoll.cursorPosition;
+        } else {
+            e.time -= pianoRoll.cursorPosition;
+        }
+    });
+    toneEvents = toneEvents.map(note => {
+        return {
+            time: note.time * 60 / bpm,
+            pitch: note.pitch, 
+            dur: note.dur  * 60 / bpm,
+        }
+    });
     return toneEvents;
 }
 
