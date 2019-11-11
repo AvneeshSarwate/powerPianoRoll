@@ -69,7 +69,7 @@ Basic strategy for implementing multi-note modifications -
 */
 
 class PianoRoll {
-    constructor(containerElementId){
+    constructor(containerElementId, playHandler){
         this.svgRoot; //the svg root element
 
         /* a dictionary that, upon the start of a group drag/resize event, stores the 
@@ -168,19 +168,22 @@ class PianoRoll {
         this.containerElement.tabIndex = 0;
         this.containerElementId = containerElementId;
 
-        this.temporaryMouseMoveHandler = null;        
+        this.temporaryMouseMoveHandler = null;     
+        
+        //callback to play notes when selected/moved/etc. Takes a single pitch argument
+        this.playHandler = playHandler; 
 
         this.drawBackgroundAndCursor();
 
         // attach the interaction handlers not related to individual notes
         this.attachHandlersOnBackground(this.backgroundElements, this.svgRoot);
 
-        this.addNote(120, 0, 1, false);
-        this.addNote(115, 0, 1, false);
+        this.addNote(55, 0, 1, false);
+        this.addNote(60, 0, 1, false);
 
 
         //set the view-area so we aren't looking at the whole 127 note 100 measure piano roll
-        this.svgRoot.viewbox(0, 0, this.viewportWidth, this.viewportHeight);
+        this.svgRoot.viewbox(0, 55*this.noteHeight, this.viewportWidth, this.viewportHeight);
 
         this.containerElement.addEventListener("keydown", event => this.keydownHandler(event));
         this.containerElement.addEventListener("keyup", event => this.keyupHandler(event));
@@ -240,6 +243,9 @@ class PianoRoll {
         if(!avoidHistoryManipulation){
             this.snapshotNoteState();
         }
+
+        this.playHandler(pitch);
+
         return rect.noteId;
     }
 
@@ -449,6 +455,7 @@ class PianoRoll {
         this.selectedNoteIds.forEach(id => {
             let note = this.notes[id];
             note.info.pitch += shiftAmount;
+            this.playHandler(note.info.pitch);
             this.updateNoteElement(note);
         });
         this.executeOverlapVisibleChanges();
@@ -517,9 +524,13 @@ class PianoRoll {
         });
     }
 
+    midiPitchToPitchString(pitch){ 
+        return this.pitchStrings[pitch%12] + (Math.floor(pitch/12)-2)
+    }
+
     svgYToPitchString(yVal){
         let pitch = this.svgYtoPitch(yVal);
-        return this.pitchStrings[pitch%12] + (Math.floor(pitch/12)-2);
+        return this.midiPitchToPitchString(pitch);
     }
 
     //function that snapes note svg elements into place
@@ -849,6 +860,7 @@ class PianoRoll {
         if(!this.selectedElements.has(noteElem)) {
             this.selectedElements.add(noteElem);
             noteElem.fill(this.selectedNoteColor);
+            this.playHandler(this.notes[noteElem.noteId].info.pitch)
         }
     }
 
@@ -890,79 +902,3 @@ class PianoRoll {
         this.selectedElements.forEach(noteElem => this.deselectNote(noteElem));
     }
 }
-
-function pianoRollToToneEvents(pianoRoll){
-    let notes = pianoRoll.notes;
-    let bpm = Tone.Transport.bpm.value;
-    let toneEvents = Object.values(notes).map(noteInfo => {
-        let note = noteInfo.info;
-        return {
-            time: note.position,
-            pitch: noteInfo.label.text(), 
-            dur: note.duration,
-        }
-    });
-    toneEvents.sort((a, b) => a.time-b.time);
-    toneEvents = toneEvents.filter(e => e.time+e.dur > pianoRoll.cursorPosition);
-    toneEvents.forEach(e => {
-        if(e.time < pianoRoll.cursorPosition) {
-            e.dur = e.dur - (pianoRoll.cursorPosition-e.time);
-            e.time = pianoRoll.cursorPosition;
-        } else {
-            e.time -= pianoRoll.cursorPosition;
-        }
-    });
-    toneEvents = toneEvents.map(note => {
-        return {
-            time: note.time * 60 / bpm,
-            pitch: note.pitch, 
-            dur: note.dur  * 60 / bpm,
-        }
-    });
-    return toneEvents;
-}
-
-function playPianoRoll(pianoRoll){
-    stopPianoRoll();
-
-    let toneEvents = pianoRollToToneEvents(pianoRoll);
-
-    playingPart = new Tone.Part((time, value) => {
-        console.log('part note', time, value);
-        synth.triggerAttackRelease(value.pitch, value.dur) //and velocity once that's in the piano roll
-    }, toneEvents).start();
-}
-
-function stopPianoRoll(){
-    if(playingPart){
-        playingPart.stop();
-        playingPart.dispose();
-    }
-}
-
-// var part = new Tone.Part(function(time, value){
-// 	//the value is an object which contains both the note and the velocity
-//     synth.triggerAttackRelease(value.note, "8n", time, value.velocity);
-// }, [{"time" : 0, "note" : "C3", "velocity": 0.9},
-// 	   {"time" : "0:2", "note" : "C4", "velocity": 0.5}
-// ]).start();
-
-let pianoRoll;
-let synth = new Tone.PolySynth(8).toMaster();
-let playingPart;
-StartAudioContext(Tone.context, 'body', () => {
-    Tone.Transport.start();
-});
-SVG.on(document, 'DOMContentLoaded', function() {
-    pianoRoll = new PianoRoll("drawing");
-});
-
-/*
-WORKING BUG LOG 
-- X prefix means good workaround found, but the "common sense" approach still fails and idk why
-
-
-
-*/
-
-
