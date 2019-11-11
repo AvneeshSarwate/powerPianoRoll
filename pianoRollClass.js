@@ -168,7 +168,8 @@ class PianoRoll {
         this.containerElement.tabIndex = 0;
         this.containerElementId = containerElementId;
 
-        this.temporaryMouseMoveHandler = null;     
+        this.temporaryMouseMoveHandler = null; //variable used to manage logic for various mouse-drag gestures
+        this.mousePosition = {x: 0, y: 0}; //current position of mouse in SVG coordinates
         
         //callback to play notes when selected/moved/etc. Takes a single pitch argument
         this.playHandler = playHandler; 
@@ -187,6 +188,9 @@ class PianoRoll {
 
         this.containerElement.addEventListener("keydown", event => this.keydownHandler(event));
         this.containerElement.addEventListener("keyup", event => this.keyupHandler(event));
+        this.containerElement.addEventListener('mousemove', event => {
+                this.mousePosition = this.svgMouseCoord(event);
+            });
     }
 
     drawBackgroundAndCursor() {
@@ -422,6 +426,14 @@ class PianoRoll {
             if(this.selectedElements.size > 0) this.shiftNotesTime(0.25);
             event.preventDefault();
         }
+        if(event.key == 'd'){//have 1, 2, 3, 4 be different lengths
+            let noteInfo = this.svgXYtoPitchPosQuant(this.mousePosition.x, this.mousePosition.y);
+            this.addNote(noteInfo.pitch, noteInfo.position, 0.25);
+        }
+        if(event.key == 'q'){ 
+            //replace with generic interactionPlay() handler 
+            this.getNotesAtPosition(this.cursorPosition+0.01).map(n => synth.triggerAttackRelease(n.label.text(), '16n'))
+        }
         event.stopPropagation();
     }
 
@@ -556,6 +568,11 @@ class PianoRoll {
         });
     }
 
+
+    getNotesAtPosition(pos){
+        let notesAtPos = Object.values(pianoRoll.notes).filter(n => n.info.position <= pos && pos <= n.info.position+n.info.duration);
+        return notesAtPos;
+    }
 
     //used to differentiate between "clicks" and "drags" from a user perspective
     //to stop miniscule changes from being added to undo history
