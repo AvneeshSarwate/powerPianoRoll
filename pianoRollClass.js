@@ -434,7 +434,7 @@ class PianoRoll {
         }
         if(event.key == 'q'){ 
             //replace with generic interactionPlay() handler 
-            this.getNotesAtPosition(this.cursorPosition+0.01).map(n => synth.triggerAttackRelease(n.label.text(), '16n'))
+            this.getNotesAtPosition(this.cursorPosition+0.01).map(n => this.playHandler(n.info.pitch));
         }
         event.stopPropagation();
     }
