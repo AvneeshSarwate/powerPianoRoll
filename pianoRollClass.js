@@ -426,6 +426,10 @@ class PianoRoll {
             if(this.selectedElements.size > 0) this.shiftNotesTime(0.25);
             event.preventDefault();
         }
+        if(event.key === ''){
+            if(this.spaceBarFunction) this.spaceBarFunction();
+            event.preventDefault();
+        }
         if(['Digit1', 'Digit2', 'Digit3', 'Digit4'].includes(event.code)){//have 1, 2, 3, 4 be different lengths
             let noteInfo = this.svgXYtoPitchPosQuant(this.mousePosition.x, this.mousePosition.y);
             let keyNum = parseFloat(event.code[5]);
