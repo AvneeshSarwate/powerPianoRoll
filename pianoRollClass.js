@@ -90,9 +90,11 @@ class PianoRoll {
 
         this.selectRect; //the variable holding the mouse-region highlight svg rectabgle 
 
-        this.cursorElement;
+        this.cursorElement; //cursor that corresponds to interaction and editing
         this.cursorPosition = 0.25; //cursor position is in beats
         this.cursorWidth = 2.1; 
+
+        this.playCursorElement; //cursor that moves when piano roll is being played
 
         //svg elements in the pianoRoll background
         this.backgroundElements;
@@ -223,6 +225,7 @@ class PianoRoll {
         }
 
         this.cursorElement = this.svgRoot.rect(this.cursorWidth, this.pianoRollHeight).move(this.cursorPosition * this.quarterNoteWidth, 0).fill(this.noteColor);
+        this.playCursorElement = this.svgRoot.rect(this.cursorWidth, this.pianoRollHeight).move(this.cursorPosition * this.quarterNoteWidth, 0).fill('#2d2').opacity(0);
         this.cursorElement.animate(1500, '<>').attr({fill: '#fff'}).loop(Infinity, true);
     }
 
@@ -428,7 +431,7 @@ class PianoRoll {
         }
         if(event.key === ' '){
             if(pianoRollIsPlaying) {
-                stopPianoRoll();
+                stopPianoRoll(this);
             }
             else {
                 playPianoRoll(this);

@@ -1,9 +1,11 @@
 
 "use strict";
 
+let getBPM = () =>  Tone.Transport.bpm.value;
+
 function pianoRollToToneEvents(pianoRoll){
     let notes = pianoRoll.notes;
-    let bpm = Tone.Transport.bpm.value;
+    let bpm = getBPM();
     let toneEvents = Object.values(notes).map(noteInfo => {
         let note = noteInfo.info;
         return {
@@ -36,10 +38,29 @@ function pianoRollToToneEvents(pianoRoll){
     return toneEvents;
 }
 
+
 //TODO: maybe move part and playing-flag variables to inside toneclass?
+let playCursorLoop;
 let pianoRollIsPlaying = false;
+let playingPart;
 function playPianoRoll(pianoRoll){
     let toneEvents = pianoRollToToneEvents(pianoRoll);
+
+    let playTime = toneEvents.slice(-1)[0].time + toneEvents.slice(-1)[0].dur;
+    let playStartPos = pianoRoll.cursorPosition * pianoRoll.quarterNoteWidth;
+    let playScreenDist = playTime * getBPM() / 60 * pianoRoll.quarterNoteWidth;
+    
+    pianoRoll.playCursorElement.opacity(1);
+
+    playCursorLoop = animitter(function(deltaTime, elapsedTime, frameCount){
+        if(elapsedTime/1000 >= playTime){
+            pianoRoll.playCursorElement.opacity(0);
+            this.complete();
+            console.log("finished playing", elapsedTime/1000, playTime);
+        }
+        let playFrac = elapsedTime/1000/playTime;
+        pianoRoll.playCursorElement.x(playStartPos + playFrac*playScreenDist);
+    }).start();
 
     playingPart = new Tone.Part((time, value) => {
         console.log('part note', time, value);
@@ -49,8 +70,10 @@ function playPianoRoll(pianoRoll){
     pianoRollIsPlaying = true;
 }
 
-function stopPianoRoll(){
+function stopPianoRoll(pianoRoll){
     if(playingPart){
+        playCursorLoop.complete()
+        pianoRoll.playCursorElement.opacity(0);
         pianoRollIsPlaying = false;
         playingPart.stop();
         playingPart.dispose();
@@ -59,7 +82,7 @@ function stopPianoRoll(){
 
 let pianoRoll;
 let synth = new Tone.PolySynth(8).toMaster();
-let playingPart;
+
 StartAudioContext(Tone.context, 'body', () => {
     Tone.Transport.start();
 });
