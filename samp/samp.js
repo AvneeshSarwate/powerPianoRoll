@@ -52,7 +52,7 @@ let sampler = new Tone.Sampler({
             "onload": function() {
                 let playHandler = function(pitch, duration='16n'){
                     //if duration is "on" then just do noteOn, if its "off" just do note off
-                    let pitchString = this.midiPitchToPitchString(pitch);
+                    let pitchString = typeof pitch === 'string' ? pitch : this.midiPitchToPitchString(pitch);
                     sampler.triggerAttackRelease(pitchString, duration);
                 }
                 pianoRoll.playHandler = playHandler;

@@ -426,8 +426,13 @@ class PianoRoll {
             if(this.selectedElements.size > 0) this.shiftNotesTime(0.25);
             event.preventDefault();
         }
-        if(event.key === ''){
-            if(this.spaceBarFunction) this.spaceBarFunction();
+        if(event.key === ' '){
+            if(pianoRollIsPlaying) {
+                stopPianoRoll();
+            }
+            else {
+                playPianoRoll(this);
+            }
             event.preventDefault();
         }
         if(['Digit1', 'Digit2', 'Digit3', 'Digit4'].includes(event.code)){//have 1, 2, 3, 4 be different lengths
