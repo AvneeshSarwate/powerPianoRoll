@@ -69,7 +69,7 @@ Basic strategy for implementing multi-note modifications -
 */
 
 class PianoRoll {
-    constructor(containerElementId, playHandler){
+    constructor(containerElementId, playHandler, noteOnOffHandler){
         this.svgRoot; //the svg root element
 
         /* a dictionary that, upon the start of a group drag/resize event, stores the 
@@ -175,6 +175,10 @@ class PianoRoll {
         
         //callback to play notes when selected/moved/etc. Takes a single pitch argument
         this.playHandler = playHandler; 
+
+        //handler for separate on/off actions. takes a pitch val and on/off string
+        this.noteOnOffHandler = noteOnOffHandler;
+
 
         this.drawBackgroundAndCursor();
 
@@ -445,10 +449,34 @@ class PianoRoll {
             this.addNote(noteInfo.pitch, noteInfo.position, dur);
         }
         if(event.key == 'q'){ 
-            //replace with generic interactionPlay() handler 
             this.getNotesAtPosition(this.cursorPosition+0.01).map(n => this.playHandler(n.info.pitch));
         }
+        if(event.key == 'w'){
+            if(!this.wIsDown){
+                this.wIsDown = true;
+                this.getNotesAtPosition(this.cursorPosition+0.01).map(n => this.noteOnOffHandler(n.info.pitch, 'on'));
+            }
+        }
         event.stopPropagation();
+    }
+
+    keyupHandler(event){
+        if(event.key == 'Shift') this.shiftKeyDown = false; 
+        if(!event.ctrlKey && this.mouseScrollActive) {
+            this.mouseScrollActive = false;
+            this.containerElement.removeEventListener('mousemove', this.temporaryMouseMoveHandler);
+            this.temporaryMouseMoveHandler = null;
+        }
+        if(!event.altKey && this.mouseZoomActive) {
+            this.mouseZoomActive = false;
+            this.containerElement.removeEventListener('mousemove', this.temporaryMouseMoveHandler);
+            this.temporaryMouseMoveHandler = null;
+        }
+        if(event.key == 'w'){ 
+            this.wIsDown = false;
+            //replace with generic interactionPlay() handler 
+            this.getNotesAtPosition(this.cursorPosition+0.01).map(n => this.noteOnOffHandler(n.info.pitch, 'off'));
+        }
     }
 
     copyNotes(){
@@ -501,20 +529,6 @@ class PianoRoll {
         this.updateNoteStateOnModificationCompletion();
         // this.refreshNoteModStartReference(this.selectedNoteIds);//
         // this.snapshotNoteState();
-    }
-
-    keyupHandler(event){
-        if(event.key == 'Shift') this.shiftKeyDown = false; 
-        if(!event.ctrlKey && this.mouseScrollActive) {
-            this.mouseScrollActive = false;
-            this.containerElement.removeEventListener('mousemove', this.temporaryMouseMoveHandler);
-            this.temporaryMouseMoveHandler = null;
-        }
-        if(!event.altKey && this.mouseZoomActive) {
-            this.mouseZoomActive = false;
-            this.containerElement.removeEventListener('mousemove', this.temporaryMouseMoveHandler);
-            this.temporaryMouseMoveHandler = null;
-        }
     }
 
     snapshotNoteState(){

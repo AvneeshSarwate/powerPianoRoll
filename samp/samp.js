@@ -54,8 +54,18 @@ let sampler = new Tone.Sampler({
                     //if duration is "on" then just do noteOn, if its "off" just do note off
                     let pitchString = typeof pitch === 'string' ? pitch : this.midiPitchToPitchString(pitch);
                     sampler.triggerAttackRelease(pitchString, duration);
-                }
+                };
+                let onOffHanlder = function(pitch, onOff){
+                    let pitchString = typeof pitch === 'string' ? pitch : this.midiPitchToPitchString(pitch);
+                    console.log("samp", onOff)
+                    if(onOff == 'on'){
+                        sampler.triggerAttack(pitchString);
+                    } else {
+                        sampler.triggerRelease(pitchString);
+                    }
+                };
                 pianoRoll.playHandler = playHandler;
+                pianoRoll.noteOnOffHandler = onOffHanlder;
             }
         })
 // sampler = new Tone.PolySynth();

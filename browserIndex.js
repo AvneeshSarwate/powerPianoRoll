@@ -92,7 +92,15 @@ SVG.on(document, 'DOMContentLoaded', function() {
         let pitchString = typeof pitch === 'string' ? pitch : this.midiPitchToPitchString(pitch);
         synth.triggerAttackRelease(pitchString, duration);
     }
-    pianoRoll = new PianoRoll("drawing", playHandler);
+    let onOffHanlder = function(pitch, onOff){
+        let pitchString = typeof pitch === 'string' ? pitch : this.midiPitchToPitchString(pitch);
+        if(onOff == 'on'){
+            synth.triggerAttack(pitchString);
+        } else {
+            synth.triggerRelease(pitchString);
+        }
+    }
+    pianoRoll = new PianoRoll("drawing", playHandler, onOffHanlder);
 });
 /*
 WORKING BUG LOG 
