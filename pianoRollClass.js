@@ -239,7 +239,7 @@ class PianoRoll {
         let rect = this.svgRoot.rect(duration*this.quarterNoteWidth, this.noteHeight).move(position*this.quarterNoteWidth, (127-pitch)*this.noteHeight).fill(this.noteColor);
         this.rawSVGElementToWrapper[rect.node.id] = rect;
         rect.noteId = this.noteCount;
-        rect.selectize({rotationPoint: false, points:['r', 'l']}).resize();
+        // rect.selectize({rotationPoint: false, points:['r', 'l']}).resize();
         let text = this.svgRoot.text(this.svgYToPitchString(rect.y()))
             .font({size: 14})
             .move(position*this.quarterNoteWidth + this.textDev, (127-pitch)*this.noteHeight)
@@ -261,7 +261,7 @@ class PianoRoll {
     }
 
     deleteElement(elem){
-        elem.selectize(false);
+        // elem.selectize(false);
         elem.remove();
         this.notes[elem.noteId].label.remove();
     }
@@ -635,7 +635,7 @@ class PianoRoll {
 
 
     endSelect(){
-        this.selectRect.draw('stop', event);
+        // this.selectRect.draw('stop', event);
         this.selectRect.remove();
         this.svgRoot.off('mousemove');
         this.selectRect = null;
@@ -677,7 +677,7 @@ class PianoRoll {
 
         //restart new mouse multi-select gesture
         this.selectRect = this.svgRoot.rect().fill('#008').attr('opacity', 0.25);
-        this.selectRect.draw(event);
+        // this.selectRect.draw(event);
         this.svgRoot.on('mousemove', (event)=>{
             
             //select this.notes which intersect with the selectRect (mouse selection area)
